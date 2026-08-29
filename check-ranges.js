@@ -1,86 +1,166 @@
 /**
- * Sanity checks on the range data. These are properties any coherent set of
- * opening ranges must have — a chart that violates them would teach something
- * wrong, and that is worth catching before it reaches the trainer.
+ * Coherence checks on the range data.
+ *
+ * None of these prove the ranges are optimal — nothing here could. What they
+ * catch is a chart that contradicts itself or contradicts position, which is
+ * the difference between a baseline worth drilling and one that teaches
+ * nonsense.
  */
 
-const { RANGES, RANKS, combosOf } = require("./ranges.js");
+const { RANKS, SPOTS, VS_LIMP, combosOf, percentOf } = require("./ranges.js");
 
 let failures = 0;
-const fail = (message) => {
-  console.log("  FAIL " + message);
-  failures++;
-};
+const fail = (m) => { console.log("  FAIL " + m); failures++; };
 
-// Every hand must be one of the 169 real starting hands.
-const valid = new Set();
+const ALL_HANDS = new Set();
 for (let i = 0; i < 13; i++) {
   for (let j = 0; j < 13; j++) {
-    if (i === j) valid.add(RANKS[i] + RANKS[i]);
+    if (i === j) ALL_HANDS.add(RANKS[i] + RANKS[i]);
     else if (i > j) {
-      valid.add(RANKS[i] + RANKS[j] + "s");
-      valid.add(RANKS[i] + RANKS[j] + "o");
+      ALL_HANDS.add(RANKS[i] + RANKS[j] + "s");
+      ALL_HANDS.add(RANKS[i] + RANKS[j] + "o");
     }
   }
 }
 
-console.log("1. every hand is a real starting hand");
-for (const r of RANGES) {
-  for (const hand of r.hands) if (!valid.has(hand)) fail(`${r.label} contains ${hand}`);
-}
+const spot = (id) => SPOTS.find((s) => s.id === id);
+const pct = (s, key) => (s.sets[key] ? percentOf(s.sets[key]) : 0);
+/** Everything that is not a fold. */
+const played = (s) =>
+  Object.keys(s.sets).reduce((total, key) => total + pct(s, key), 0);
 
-console.log("2. ranges widen from early position to the button");
-const openers = RANGES.filter((r) => r.id !== "SB");
-for (let i = 1; i < openers.length; i++) {
-  if (openers[i].percent <= openers[i - 1].percent) {
-    fail(
-      `${openers[i].label} (${openers[i].percent.toFixed(1)}%) is not wider than ` +
-        `${openers[i - 1].label} (${openers[i - 1].percent.toFixed(1)}%)`,
-    );
+console.log("1. every hand named is a real starting hand");
+for (const s of SPOTS) {
+  for (const key of Object.keys(s.sets)) {
+    for (const hand of s.sets[key]) {
+      if (!ALL_HANDS.has(hand)) fail(`${s.id} ${key} contains ${hand}`);
+    }
   }
 }
 
-console.log("3. a hand opened from early position is still opened later");
-for (let i = 1; i < openers.length; i++) {
-  const missing = [...openers[i - 1].hands].filter((h) => !openers[i].hands.has(h));
-  if (missing.length) {
-    fail(`${openers[i].label} drops ${missing.join(", ")} which ${openers[i - 1].label} opens`);
+console.log("2. no hand is assigned two different actions in the same spot");
+for (const s of SPOTS) {
+  const keys = Object.keys(s.sets);
+  for (let a = 0; a < keys.length; a++) {
+    for (let b = a + 1; b < keys.length; b++) {
+      const overlap = [...s.sets[keys[a]]].filter((h) => s.sets[keys[b]].has(h));
+      if (overlap.length) {
+        fail(`${s.id} has ${overlap.join(", ")} in both ${keys[a]} and ${keys[b]}`);
+      }
+    }
   }
 }
 
-console.log("4. the small blind opens tighter than the button, and is nested in it");
-const btn = RANGES.find((r) => r.id === "BTN");
-const sb = RANGES.find((r) => r.id === "SB");
-if (sb.percent >= btn.percent) fail(`SB (${sb.percent.toFixed(1)}%) is not tighter than BTN`);
-const sbExtra = [...sb.hands].filter((h) => !btn.hands.has(h));
-if (sbExtra.length) fail(`SB opens ${sbExtra.join(", ")} which BTN folds`);
+console.log("3. no spot plays more than every hand");
+for (const s of SPOTS) {
+  if (played(s) > 100.0001) fail(`${s.id} plays ${played(s).toFixed(1)}% of hands`);
+}
 
-console.log("5. premium hands are opened from every position");
-for (const r of RANGES) {
-  for (const hand of ["AA", "KK", "QQ", "AKs", "AKo"]) {
-    if (!r.hands.has(hand)) fail(`${r.label} does not open ${hand}`);
+console.log("4. aces and kings are always raised, never just called or folded");
+for (const s of SPOTS) {
+  const aggressive = s.sets.raise || s.sets.threebet;
+  for (const hand of ["AA", "KK"]) {
+    if (!aggressive.has(hand)) fail(`${s.id} does not raise ${hand}`);
   }
 }
 
-console.log("6. trash is never opened from a non-blind, non-button seat");
-for (const r of RANGES) {
-  if (r.id === "BTN" || r.id === "SB") continue;
+console.log("5. opening ranges widen from under the gun to the button");
+const OPEN_ORDER = ["UTG", "UTG+1", "UTG+2", "LJ", "HJ", "CO", "BTN"];
+for (let i = 1; i < OPEN_ORDER.length; i++) {
+  const prev = spot(`rfi-${OPEN_ORDER[i - 1]}`);
+  const here = spot(`rfi-${OPEN_ORDER[i]}`);
+  if (pct(here, "raise") <= pct(prev, "raise")) {
+    fail(`rfi ${OPEN_ORDER[i]} (${pct(here, "raise").toFixed(1)}%) is not wider than ${OPEN_ORDER[i - 1]}`);
+  }
+  const dropped = [...prev.sets.raise].filter((h) => !here.sets.raise.has(h));
+  if (dropped.length) fail(`rfi ${OPEN_ORDER[i]} drops ${dropped.join(", ")} that ${OPEN_ORDER[i - 1]} opens`);
+}
+
+console.log("6. defence widens as the raise comes from a later seat");
+const BUCKET_ORDER = ["EP", "MP", "CO", "BTN", "SB"];
+const bySeat = new Map();
+for (const s of SPOTS.filter((x) => x.scenario === "vsopen")) {
+  if (!bySeat.has(s.hero)) bySeat.set(s.hero, []);
+  bySeat.get(s.hero).push(s);
+}
+for (const [seat, spots] of bySeat) {
+  const ordered = spots.sort((a, b) => BUCKET_ORDER.indexOf(a.vs) - BUCKET_ORDER.indexOf(b.vs));
+  for (let i = 1; i < ordered.length; i++) {
+    if (played(ordered[i]) <= played(ordered[i - 1])) {
+      fail(
+        `${seat} defends ${played(ordered[i]).toFixed(1)}% vs ${ordered[i].vs} but ` +
+          `${played(ordered[i - 1]).toFixed(1)}% vs ${ordered[i - 1].vs}`,
+      );
+    }
+  }
+}
+
+console.log("7. the big blind defends wider than the small blind against the same raise");
+for (const bucket of ["EP", "MP", "CO", "BTN"]) {
+  const bb = spot(`vsopen-BB-${bucket}`);
+  const sb = spot(`vsopen-SB-${bucket}`);
+  if (!bb || !sb) continue;
+  if (played(bb) <= played(sb)) {
+    fail(`vs ${bucket}: BB defends ${played(bb).toFixed(1)}%, SB ${played(sb).toFixed(1)}%`);
+  }
+}
+
+console.log("8. the big blind never folds to a limp");
+const bbLimp = spot("vslimp-BB");
+if (!bbLimp.checksRest) fail("BB vs limp should check the rest of its hands");
+if (bbLimp.actions.includes("fold")) fail("BB vs limp offers a fold");
+
+console.log("9. isolation ranges widen from early position to the button");
+const LIMP_ORDER = ["EP", "MP", "BTN"];
+for (let i = 1; i < LIMP_ORDER.length; i++) {
+  const prev = spot(`vslimp-${LIMP_ORDER[i - 1]}`);
+  const here = spot(`vslimp-${LIMP_ORDER[i]}`);
+  if (pct(here, "raise") <= pct(prev, "raise")) {
+    fail(`vslimp ${LIMP_ORDER[i]} isolates ${pct(here, "raise").toFixed(1)}%, not wider than ${LIMP_ORDER[i - 1]}`);
+  }
+}
+
+console.log("10. trash never opens from a seat that is not the button or a blind");
+for (const s of SPOTS.filter((x) => x.scenario === "rfi")) {
+  if (s.hero === "BTN" || s.hero === "SB") continue;
   for (const hand of ["72o", "83o", "94o", "32o", "T2o"]) {
-    if (r.hands.has(hand)) fail(`${r.label} opens ${hand}`);
+    if (s.sets.raise.has(hand)) fail(`rfi ${s.hero} opens ${hand}`);
   }
 }
 
-console.log("\nposition   %hands   combos   hands");
-for (const r of RANGES) {
-  let combos = 0;
-  for (const h of r.hands) combos += combosOf(h);
+// ---------------------------------------------------------------------------
+
+const NAMES = { raise: "raise", threebet: "3-bet", call: "call", check: "check" };
+
+console.log("\n--- opening ranges (folded to you) ---");
+console.log("seat       open%   hands");
+for (const s of SPOTS.filter((x) => x.scenario === "rfi")) {
+  console.log(s.hero.padEnd(10), pct(s, "raise").toFixed(1).padStart(6), String(s.sets.raise.size).padStart(7));
+}
+
+console.log("\n--- facing a raise ---");
+console.log("seat     vs      3bet%   call%   total%");
+for (const s of SPOTS.filter((x) => x.scenario === "vsopen")) {
   console.log(
-    r.label.padEnd(9),
-    r.percent.toFixed(1).padStart(6),
-    String(combos).padStart(8),
-    String(r.hands.size).padStart(7),
+    s.hero.padEnd(8),
+    s.vs.padEnd(6),
+    pct(s, "threebet").toFixed(1).padStart(6),
+    pct(s, "call").toFixed(1).padStart(7),
+    played(s).toFixed(1).padStart(8),
   );
 }
 
-console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) failed.`);
+console.log("\n--- facing a limp ---");
+console.log("seats                 iso%   overlimp%");
+for (const s of SPOTS.filter((x) => x.scenario === "vslimp")) {
+  const rest = s.checksRest ? " (checks the rest)" : "";
+  console.log(
+    (s.heroSeats.join("/")).padEnd(20),
+    pct(s, "raise").toFixed(1).padStart(6),
+    pct(s, "call").toFixed(1).padStart(10) + rest,
+  );
+}
+
+console.log(`\n${SPOTS.length} spots.`);
+console.log(failures === 0 ? "All checks passed." : `${failures} check(s) failed.`);
 process.exit(failures === 0 ? 0 : 1);

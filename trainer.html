@@ -1,11 +1,12 @@
-<title>Full Ring Opening Ranges</title>
+<title>Preflop Range Trainer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
 
 <style>
-  /* Raise is brass &#x2014; the colour of chips, not felt. That leaves green and red
-     free to mean correct and incorrect without ever fighting the chart. */
+  /* Raise is brass and call is steel &#x2014; chips and the felt rail, not casino
+     green. That leaves green and red free to mean correct and incorrect, so
+     feedback never fights the chart. */
   :root {
     --bg: #F6F7F9;
     --surface: #FFFFFF;
@@ -18,7 +19,10 @@
 
     --raise: #A9741A;
     --raise-ink: #FFFFFF;
-    --raise-wash: #F4E7CB;
+    --call: #1F6C86;
+    --call-ink: #FFFFFF;
+    --check: #6B7280;
+    --check-ink: #FFFFFF;
     --fold-wash: #E5E9EF;
 
     --good: #17794F;
@@ -45,7 +49,10 @@
 
       --raise: #D9A441;
       --raise-ink: #17120A;
-      --raise-wash: #372C13;
+      --call: #4FA6C7;
+      --call-ink: #08161C;
+      --check: #8892A0;
+      --check-ink: #0C0F14;
       --fold-wash: #191F29;
 
       --good: #3DBB84;
@@ -72,7 +79,10 @@
 
     --raise: #D9A441;
     --raise-ink: #17120A;
-    --raise-wash: #372C13;
+    --call: #4FA6C7;
+    --call-ink: #08161C;
+    --check: #8892A0;
+    --check-ink: #0C0F14;
     --fold-wash: #191F29;
 
     --good: #3DBB84;
@@ -103,20 +113,18 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .wrap { max-width: 1160px; margin: 0 auto; padding: 26px 20px 80px; display: flex; flex-direction: column; gap: 20px; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 26px 20px 80px; display: flex; flex-direction: column; gap: 18px; }
 
-  /* ---- header ---- */
   .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
   h1 { margin: 0; font-size: 25px; font-weight: 700; letter-spacing: -.022em; text-wrap: balance; }
-  .sub { margin: 3px 0 0; color: var(--muted); font-size: 13.5px; max-width: 60ch; }
+  .sub { margin: 3px 0 0; color: var(--muted); font-size: 13.5px; max-width: 62ch; }
   .kicker { font-family: "JetBrains Mono", monospace; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--faint); }
 
-  /* ---- generic controls ---- */
-  .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--surface); }
+  .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--surface); flex-wrap: wrap; }
   .seg button {
     appearance: none; border: 0; background: transparent; cursor: pointer;
     font: inherit; font-size: 12.5px; font-weight: 500; color: var(--muted);
-    padding: 6px 11px; font-family: "JetBrains Mono", monospace;
+    padding: 6px 11px; font-family: "JetBrains Mono", monospace; white-space: nowrap;
   }
   .seg button + button { border-left: 1px solid var(--line); }
   .seg button[aria-pressed="true"] { background: var(--ink); color: var(--ink-text); font-weight: 600; }
@@ -133,26 +141,24 @@
   .tab:hover { color: var(--text); }
   .tab:focus-visible { outline: 2px solid var(--ink); outline-offset: -3px; border-radius: 4px; }
 
-  .card-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
-
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
   .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 430px); gap: 18px; align-items: start; }
-  @media (max-width: 880px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 900px) { .cols { grid-template-columns: minmax(0, 1fr); } }
 
-  /* ---- seat strip ---- */
+  /* seat strip */
   .seats { display: flex; gap: 3px; flex-wrap: wrap; }
   .seat {
     font-family: "JetBrains Mono", monospace; font-size: 10.5px; font-weight: 500;
     padding: 3px 7px; border-radius: 5px; background: var(--surface-2); color: var(--faint);
-    border: 1px solid transparent;
+    border: 1px solid transparent; position: relative;
   }
   .seat.hero { background: var(--raise); color: var(--raise-ink); font-weight: 700; }
+  .seat.villain { background: var(--surface); color: var(--text); border-color: var(--text); font-weight: 600; }
   .seat.behind { color: var(--muted); border-color: var(--line); background: transparent; }
 
-  /* ---- drill ---- */
-  .drill { padding: 22px; display: flex; flex-direction: column; gap: 18px; }
-  .drill-head { display: flex; flex-direction: column; gap: 9px; }
-  .behind-note { font-size: 12.5px; color: var(--muted); }
-  .behind-note b { color: var(--text); font-weight: 600; }
+  .drill { padding: 22px; display: flex; flex-direction: column; gap: 17px; }
+  .story { font-size: 13.5px; color: var(--muted); }
+  .story b { color: var(--text); font-weight: 600; }
 
   .hand-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
   .cards { display: flex; gap: 8px; }
@@ -170,26 +176,28 @@
   .hand-title { font-family: "JetBrains Mono", monospace; font-size: 32px; font-weight: 700; letter-spacing: -.02em; }
   .hand-sub { color: var(--muted); font-size: 13.5px; margin: 1px 0 0; }
 
-  .acts { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .acts { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; }
   button.act {
     appearance: none; font: inherit; font-weight: 600; font-size: 14.5px;
-    padding: 11px 26px; border-radius: 9px; cursor: pointer;
+    padding: 11px 22px; border-radius: 9px; cursor: pointer;
     border: 1px solid var(--line-strong); background: var(--surface-2); color: var(--text);
   }
-  button.act.raise { background: var(--raise); border-color: var(--raise); color: var(--raise-ink); }
+  button.act.a-raise, button.act.a-threebet { background: var(--raise); border-color: var(--raise); color: var(--raise-ink); }
+  button.act.a-call { background: var(--call); border-color: var(--call); color: var(--call-ink); }
+  button.act.a-check { background: var(--check); border-color: var(--check); color: var(--check-ink); }
   button.act.next { background: var(--ink); border-color: var(--ink); color: var(--ink-text); }
-  button.act:hover { filter: brightness(1.06); }
+  button.act:hover { filter: brightness(1.07); }
   button.act:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .hint { font-size: 11.5px; color: var(--faint); font-family: "JetBrains Mono", monospace; }
 
-  .verdict { border-radius: 9px; padding: 13px 15px; display: flex; flex-direction: column; gap: 4px; border: 1px solid transparent; }
-  .verdict.ok { background: var(--good-wash); border-color: var(--good); color: var(--text); }
-  .verdict.no { background: var(--bad-wash); border-color: var(--bad); color: var(--text); }
+  .verdict { border-radius: 9px; padding: 13px 15px; display: flex; flex-direction: column; gap: 5px; border: 1px solid transparent; }
+  .verdict.ok { background: var(--good-wash); border-color: var(--good); }
+  .verdict.no { background: var(--bad-wash); border-color: var(--bad); }
   .verdict .head { font-weight: 700; font-size: 15px; }
-  .verdict .body { font-size: 13.5px; color: var(--muted); }
+  .verdict .body { font-size: 13.5px; color: var(--muted); margin: 0; }
   .verdict .body b { color: var(--text); font-weight: 600; }
 
-  /* ---- grid ---- */
+  /* grid */
   .grid-panel { padding: 18px; display: flex; flex-direction: column; gap: 13px; }
   .grid-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
   .grid-scroll { overflow-x: auto; }
@@ -198,29 +206,37 @@
     aspect-ratio: 1; border: 0; border-radius: 3px; padding: 0;
     font-family: "JetBrains Mono", monospace; font-size: 9.5px; font-weight: 500;
     display: flex; align-items: center; justify-content: center;
-    background: var(--fold-wash); color: var(--faint); cursor: default;
+    background: var(--fold-wash); color: var(--faint);
   }
-  .cell.in { background: var(--raise); color: var(--raise-ink); font-weight: 600; }
+  .cell.c-raise, .cell.c-threebet { background: var(--raise); color: var(--raise-ink); font-weight: 600; }
+  .cell.c-call { background: var(--call); color: var(--call-ink); font-weight: 600; }
+  .cell.c-check { background: var(--check); color: var(--check-ink); font-weight: 600; }
   .cell.mark { outline: 2.5px solid var(--text); outline-offset: 1px; z-index: 2; position: relative; }
-  .legend { display: flex; gap: 15px; flex-wrap: wrap; font-size: 11.5px; color: var(--muted); align-items: center; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11.5px; color: var(--muted); align-items: center; }
   .sw { width: 11px; height: 11px; border-radius: 2px; display: inline-block; margin-right: 5px; vertical-align: -1px; }
 
-  /* ---- stats ---- */
-  .stats { padding: 17px 19px; display: flex; flex-direction: column; gap: 15px; }
+  /* stats */
+  .stats { padding: 17px 19px; display: flex; flex-direction: column; gap: 16px; }
   .stat-row { display: flex; gap: 26px; flex-wrap: wrap; }
   .stat .k { font-family: "JetBrains Mono", monospace; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); display: block; }
   .stat .v { font-family: "JetBrains Mono", monospace; font-size: 21px; font-weight: 700; }
   .v.good { color: var(--good); } .v.bad { color: var(--bad); }
 
   .bars { display: flex; flex-direction: column; gap: 6px; }
-  .bar-row { display: grid; grid-template-columns: 52px 1fr 62px; align-items: center; gap: 10px; font-size: 12px; }
-  .bar-row .name { font-family: "JetBrains Mono", monospace; color: var(--muted); }
+  .bar-row { display: grid; grid-template-columns: 130px 1fr 66px; align-items: center; gap: 10px; font-size: 12px; }
+  .bar-row .name { font-family: "JetBrains Mono", monospace; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .track { height: 7px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
   .fill { height: 100%; border-radius: 4px; background: var(--good); }
   .fill.weak { background: var(--bad); }
   .bar-row .val { font-family: "JetBrains Mono", monospace; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
 
-  .note { font-size: 12px; color: var(--faint); max-width: 72ch; }
+  .hidden-chart {
+    margin: 0; padding: 34px 16px; text-align: center;
+    color: var(--faint); font-size: 13px;
+    border: 1px dashed var(--line-strong); border-radius: 9px; background: var(--surface-2);
+  }
+
+  .note { font-size: 12px; color: var(--faint); max-width: 76ch; }
   .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   [hidden] { display: none !important; }
 
@@ -235,10 +251,11 @@
   <div class="top">
     <div>
       <span class="kicker">9-max full ring &middot; 100bb</span>
-      <h1>Full Ring Opening Ranges</h1>
+      <h1>Preflop Range Trainer</h1>
       <p class="sub">
-        Drill which hands to open when the action folds to you. Positions run
-        UTG through the small blind.
+        Three spots: it folds to you, someone raises ahead of you, or someone
+        limps. Open, 3-bet, call, check, or fold &mdash; then see where your hand
+        actually sat in the range.
       </p>
     </div>
     <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
@@ -256,13 +273,12 @@
     <button class="tab" role="tab" id="tab-charts" aria-selected="false" aria-controls="view-charts">Charts</button>
   </div>
 
-  <!-- ================= DRILL ================= -->
   <section id="view-drill" role="tabpanel" aria-labelledby="tab-drill" style="display:flex;flex-direction:column;gap:18px">
     <div class="cols">
-      <div class="card-panel drill">
-        <div class="drill-head">
+      <div class="panel drill">
+        <div style="display:flex;flex-direction:column;gap:9px">
           <div class="seats" id="seats"></div>
-          <p class="behind-note" id="behind"></p>
+          <p class="story" id="story" style="margin:0"></p>
         </div>
 
         <div class="hand-row">
@@ -276,21 +292,22 @@
         <div id="answer-area"></div>
       </div>
 
-      <div class="card-panel grid-panel">
+      <div class="panel grid-panel" id="drill-chart-panel">
         <div class="grid-head">
-          <span class="kicker" id="grid-title">Opening range</span>
-          <span class="mono" id="grid-pct" style="font-size:12.5px;color:var(--muted)"></span>
+          <span class="kicker" id="grid-title">Range</span>
+          <span class="mono" id="grid-pct" style="font-size:12px;color:var(--muted)"></span>
         </div>
-        <div class="grid-scroll"><div class="grid" id="drill-grid"></div></div>
-        <div class="legend">
-          <span><i class="sw" style="background:var(--raise)"></i>open</span>
-          <span><i class="sw" style="background:var(--fold-wash);border:1px solid var(--line)"></i>fold</span>
-          <span id="mark-hint" style="color:var(--faint)">your hand is outlined</span>
+        <div id="chart-body">
+          <div class="grid-scroll"><div class="grid" id="drill-grid"></div></div>
+          <div class="legend" id="drill-legend" style="margin-top:13px"></div>
         </div>
+        <p class="hidden-chart" id="chart-hidden" hidden>
+          Chart hidden &mdash; answer to reveal where your hand sits.
+        </p>
       </div>
     </div>
 
-    <div class="card-panel stats" id="stats" hidden>
+    <div class="panel stats" id="stats" hidden>
       <div class="stat-row">
         <div class="stat"><span class="k">Hands</span><span class="v" id="s-n">0</span></div>
         <div class="stat"><span class="k">Accuracy</span><span class="v" id="s-acc">0%</span></div>
@@ -298,51 +315,59 @@
         <div class="stat"><span class="k">Best streak</span><span class="v" id="s-best">0</span></div>
       </div>
       <div>
-        <span class="kicker" style="display:block;margin-bottom:8px">Accuracy by position</span>
-        <div class="bars" id="bars"></div>
+        <span class="kicker" style="display:block;margin-bottom:8px">Accuracy by scenario</span>
+        <div class="bars" id="bars-scenario"></div>
       </div>
-      <p class="note" id="leak"></p>
+      <div id="weak-wrap" hidden>
+        <span class="kicker" style="display:block;margin-bottom:8px">Weakest spots</span>
+        <div class="bars" id="bars-weak"></div>
+      </div>
     </div>
 
-    <div class="card-panel stats">
+    <div class="panel stats">
       <div class="filters">
-        <span class="kicker">Drill only</span>
-        <span class="seg" id="filter-seg"></span>
+        <span class="kicker">Drill</span>
+        <span class="seg" id="scenario-seg"></span>
+      </div>
+      <div class="filters">
+        <span class="kicker">Chart</span>
+        <span class="seg" id="chart-mode-seg">
+          <button type="button" data-chart-mode="after" aria-pressed="true">After answering</button>
+          <button type="button" data-chart-mode="always" aria-pressed="false">Always</button>
+          <button type="button" data-chart-mode="never" aria-pressed="false">Never</button>
+        </span>
         <button class="act" type="button" id="reset" style="padding:6px 13px;font-size:12.5px">Reset session</button>
       </div>
     </div>
   </section>
 
-  <!-- ================= CHARTS ================= -->
   <section id="view-charts" role="tabpanel" aria-labelledby="tab-charts" hidden>
-    <div class="card-panel grid-panel">
-      <div class="filters" style="margin-bottom:4px">
-        <span class="kicker">Position</span>
-        <span class="seg" id="chart-seg"></span>
+    <div class="panel grid-panel">
+      <div class="filters">
+        <span class="kicker">Spot</span>
+        <span class="seg" id="chart-scenario-seg"></span>
+      </div>
+      <div class="filters">
+        <span class="seg" id="chart-spot-seg"></span>
       </div>
       <div class="grid-head">
         <span class="kicker" id="chart-title"></span>
-        <span class="mono" id="chart-pct" style="font-size:12.5px;color:var(--muted)"></span>
+        <span class="mono" id="chart-pct" style="font-size:12px;color:var(--muted)"></span>
       </div>
       <div class="grid-scroll"><div class="grid" id="chart-grid"></div></div>
-      <div class="legend">
-        <span><i class="sw" style="background:var(--raise)"></i>open</span>
-        <span><i class="sw" style="background:var(--fold-wash);border:1px solid var(--line)"></i>fold</span>
-        <span style="color:var(--faint)">suited above the diagonal, offsuit below, pairs on it</span>
-      </div>
-      <div style="border-top:1px solid var(--line);padding-top:12px">
-        <span class="kicker" style="display:block;margin-bottom:6px">Written out</span>
-        <p class="mono" id="chart-notation" style="font-size:12.5px;color:var(--muted);margin:0;line-height:1.7"></p>
-      </div>
+      <div class="legend" id="chart-legend"></div>
+      <div style="border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px" id="chart-notation"></div>
     </div>
   </section>
 
   <p class="note">
-    These are a consensus teaching baseline for 9-max cash at 100bb &mdash; close to
-    what most full-ring charts agree on, and checked for coherence (they widen
-    with position, and nothing opened early is folded later). They are not solver
-    output and are not claimed to be optimal. Real play also depends on your
-    table, your sizing, and how the players behind you respond.
+    A consensus teaching baseline for 9-max cash at 100bb &mdash; not solver output,
+    and not claimed to be optimal. The opponent's seat is bucketed into early,
+    middle, cutoff, button and small blind, which is how these charts are
+    normally taught; a real solver would treat every exact pairing separately.
+    Checked for coherence: ranges widen with position, no hand is given two
+    actions, defence widens against later raises, and the big blind never folds
+    to a limp.
   </p>
 </div>
 
@@ -350,71 +375,43 @@
 (() => {
   "use strict";
 
-  // ---------- range notation ----------
+  const DATA = {"seats":["UTG","UTG+1","UTG+2","LJ","HJ","CO","BTN","SB","BB"],"seatNames":{"UTG":"under the gun","UTG+1":"under the gun + 1","UTG+2":"under the gun + 2","LJ":"the lojack","HJ":"the hijack","CO":"the cutoff","BTN":"the button","SB":"the small blind","BB":"the big blind"},"buckets":{"EP":{"label":"early position","seats":["UTG","UTG+1","UTG+2"]},"MP":{"label":"middle position","seats":["LJ","HJ"]},"CO":{"label":"the cutoff","seats":["CO"]},"BTN":{"label":"the button","seats":["BTN"]},"SB":{"label":"the small blind","seats":["SB"]}},"spots":[{"id":"rfi-UTG","scenario":"rfi","hero":"UTG","heroSeats":["UTG"],"heroName":"under the gun","behind":8,"vs":null,"vsName":null,"actions":["raise","fold"],"checksRest":false,"assign":{"66":"raise","77":"raise","88":"raise","99":"raise","TT":"raise","JJ":"raise","QQ":"raise","KK":"raise","AA":"raise","ATs":"raise","AJs":"raise","AQs":"raise","AKs":"raise","KTs":"raise","KJs":"raise","KQs":"raise","QJs":"raise","JTs":"raise","AJo":"raise","AQo":"raise","AKo":"raise"},"pct":{"raise":9.5},"notation":{"raise":["66+","ATs+","KTs+","QJs","JTs","AJo+"]}},{"id":"rfi-UTG+1","scenario":"rfi","hero":"UTG+1","heroSeats":["UTG+1"],"heroName":"under the gun + 1","behind":7,"vs":null,"vsName":null,"actions":["raise","fold"],"checksRest":false,"assign":{"55":"raise","66":"raise","77":"raise","88":"raise","99":"raise","TT":"raise","JJ":"raise","QQ":"raise","KK":"raise","AA":"raise","A9s":"raise","ATs":"raise","AJs":"raise","AQs":"raise","AKs":"raise","KTs":"raise","KJs":"raise","KQs":"raise","QTs":"raise","QJs":"raise","JTs":"raise","T9s":"raise","AJo":"raise","AQo":"raise","AKo":"raise","KQo":"raise"},"pct":{"raise":11.76},"notation":{"raise":["55+","A9s+","KTs+","QTs+","JTs","T9s","AJo+","KQo"]}},{"id":"rfi-UTG+2","scenario":"rfi","hero":"UTG+2","heroSeats":["UTG+2"],"heroName":"under the gun + 2","behind":6,"vs":null,"vsName":null,"actions":["raise","fold"],"checksRest":false,"assign":{"44":"raise","55":"raise","66":"raise","77":"raise","88":"raise","99":"raise","TT":"raise","JJ":"raise","QQ":"raise","KK":"raise","AA":"raise","A8s":"raise","A9s":"raise","ATs":"raise","AJs":"raise","AQs":"raise","AKs":"raise","K9s":"raise","KTs":"raise","KJs":"raise","KQs":"raise","Q9s":"raise","QTs":"raise","QJs":"raise","J9s":"raise","JTs":"raise","T9s":"raise","98s":"raise","ATo":"raise","AJo":"raise","AQo":"raise","AKo":"raise","KQo":"raise"},"pct":{"raise":14.63},"notation":{"raise":["44+","A8s+","K9s+","Q9s+","J9s+","T9s","98s","ATo+","KQo"]}},{"id":"rfi-LJ","scenario":"rfi","hero":"LJ","heroSeats":["LJ"],"heroName":"the lojack","behind":5,"vs":null,"vsName":null,"actions":["raise","fold"],"checksRest":false,"assign":{"33":"raise","44":"raise","55":"raise","66":"raise","77":"raise","88":"raise","99":"raise","TT":"raise","JJ":"raise","QQ":"raise","KK":"raise","AA":"raise","A7s":"raise","A8s":"raise","A9s":"raise","ATs":"raise","AJs":"raise","AQs":"raise","AKs":"raise","A5s":"raise","K9s":"raise","KTs":"raise","KJs":"raise","KQs":"raise","Q9s":"raise","QTs":"raise","QJs":"raise","J9s":"raise","JTs":"raise","T8s":"raise","T9s":"raise","98s":"raise","87s":"raise","ATo":"raise","AJo":"raise","AQo":"raise","AKo":"raise","KJo":"raise","KQo":"raise"},"pct":{"raise":17.19},"notation":{"raise":["33+","A7s+","A5s","K9s+","Q9s+","J9s+","T8s+","98s","87s","ATo+","KJo+"]}},{"id":"rfi-HJ","scenario":"rfi","hero":"HJ","heroSeats":["HJ"],"heroName":"the hijack","behind":4,"vs":null,"vsName":null,"actions":["raise","fold"],"checksRest":false,"assign":{"22":"raise","33":"raise","44":"raise","55":"raise","66":"raise","77":"raise","88":"raise","99":"raise","TT":"raise","JJ":"raise","QQ":"raise","KK":"raise","AA":"raise","A2s":"raise","A3s":"raise","A4s":"raise","A5s":"raise","A6s":"raise","A7s":"raise","A8s":"raise","A9s":"raise","ATs":"raise","AJs":"raise","AQs":"raise","AKs":"raise","K8s":"raise","K9s":"raise","KTs":"raise","KJs":"raise","KQs":"raise","Q8s":"raise","Q9s":"raise","QTs":"raise","QJs":"raise","J8s":"raise","J9s":"raise","JTs":"raise","T8s":"raise","T9s":"raise","97s":"raise","98s":"raise","87s":"raise","ATo":"raise","AJo":"raise","AQo":"raise","AKo":"raise","KJo":"raise","KQo":"raise","QJo":"raise"},"pct":{"raise":20.97},"notation":{"raise":["22+","A2s+","K8s+","Q8s+","J8s+","T8s+","97s+","87s","ATo+","KJo+","QJo"]}},{"id":"rfi-CO","scenario":"rfi","hero":"CO","heroSeats":["CO"],"heroName":"the cutoff","behind":3,"vs":null,"vsName":null,"actions":["raise","fold"],"checksRest":false,"assign":{"22":"raise","33":"raise","44":"raise","55":"raise","66":"raise","77":"raise","88":"raise","99":"raise","TT":"raise","JJ":"raise","QQ":"raise","KK":"raise","AA":"raise","A2s":"raise","A3s":"raise","A4s":"raise","A5s":"raise","A6s":"raise","A7s":"raise","A8s":"raise","A9s":"raise","ATs":"raise","AJs":"raise","AQs":"raise","AKs":"raise","K5s":"raise","K6s":"raise","K7s":"raise","K8s":"raise","K9s":"raise","KTs":"raise","KJs":"raise","KQs":"raise","Q8s":"raise","Q9s":"raise","QTs":"raise","QJs":"raise","J8s":"raise","J9s":"raise","JTs":"raise","T7s":"raise","T8s":"raise","T9s":"raise","96s":"raise","97s":"raise","98s":"raise","86s":"raise","87s":"raise","75s":"raise","76s":"raise","65s":"raise","A9o":"raise","ATo":"raise","AJo":"raise","AQo":"raise","AKo":"raise","KTo":"raise","KJo":"raise","KQo":"raise","QTo":"raise","QJo":"raise","JTo":"raise"},"pct":{"raise":27.3},"notation":{"raise":["22+","A2s+","K5s+","Q8s+","J8s+","T7s+","96s+","86s+","75s+","65s","A9o+","KTo+","QTo+","JTo"]}},{"id":"rfi-BTN","scenario":"rfi","hero":"BTN","heroSeats":["BTN"],"heroName":"the button","behind":2,"vs":null,"vsName":null,"actions":["raise","fold"],"checksRest":false,"assign":{"22":"raise","33":"raise","44":"raise","55":"raise","66":"raise","77":"raise","88":"raise","99":"raise","TT":"raise","JJ":"raise","QQ":"raise","KK":"raise","AA":"raise","A2s":"raise","A3s":"raise","A4s":"raise","A5s":"raise","A6s":"raise","A7s":"raise","A8s":"raise","A9s":"raise","ATs":"raise","AJs":"raise","AQs":"raise","AKs":"raise","K2s":"raise","K3s":"raise","K4s":"raise","K5s":"raise","K6s":"raise","K7s":"raise","K8s":"raise","K9s":"raise","KTs":"raise","KJs":"raise","KQs":"raise","Q4s":"raise","Q5s":"raise","Q6s":"raise","Q7s":"raise","Q8s":"raise","Q9s":"raise","QTs":"raise","QJs":"raise","J6s":"raise","J7s":"raise","J8s":"raise","J9s":"raise","JTs":"raise","T6s":"raise","T7s":"raise","T8s":"raise","T9s":"raise","95s":"raise","96s":"raise","97s":"raise","98s":"raise","85s":"raise","86s":"raise","87s":"raise","74s":"raise","75s":"raise","76s":"raise","64s":"raise","65s":"raise","53s":"raise","54s":"raise","43s":"raise","A2o":"raise","A3o":"raise","A4o":"raise","A5o":"raise","A6o":"raise","A7o":"raise","A8o":"raise","A9o":"raise","ATo":"raise","AJo":"raise","AQo":"raise","AKo":"raise","K8o":"raise","K9o":"raise","KTo":"raise","KJo":"raise","KQo":"raise","Q9o":"raise","QTo":"raise","QJo":"raise","J9o":"raise","JTo":"raise","T9o":"raise","98o":"raise"},"pct":{"raise":44.19},"notation":{"raise":["22+","A2s+","K2s+","Q4s+","J6s+","T6s+","95s+","85s+","74s+","64s+","53s+","43s","A2o+","K8o+","Q9o+","J9o+","T9o","98o"]}},{"id":"rfi-SB","scenario":"rfi","hero":"SB","heroSeats":["SB"],"heroName":"the small blind","behind":1,"vs":null,"vsName":null,"actions":["raise","fold"],"checksRest":false,"assign":{"22":"raise","33":"raise","44":"raise","55":"raise","66":"raise","77":"raise","88":"raise","99":"raise","TT":"raise","JJ":"raise","QQ":"raise","KK":"raise","AA":"raise","A2s":"raise","A3s":"raise","A4s":"raise","A5s":"raise","A6s":"raise","A7s":"raise","A8s":"raise","A9s":"raise","ATs":"raise","AJs":"raise","AQs":"raise","AKs":"raise","K2s":"raise","K3s":"raise","K4s":"raise","K5s":"raise","K6s":"raise","K7s":"raise","K8s":"raise","K9s":"raise","KTs":"raise","KJs":"raise","KQs":"raise","Q5s":"raise","Q6s":"raise","Q7s":"raise","Q8s":"raise","Q9s":"raise","QTs":"raise","QJs":"raise","J7s":"raise","J8s":"raise","J9s":"raise","JTs":"raise","T7s":"raise","T8s":"raise","T9s":"raise","96s":"raise","97s":"raise","98s":"raise","86s":"raise","87s":"raise","75s":"raise","76s":"raise","65s":"raise","54s":"raise","A2o":"raise","A3o":"raise","A4o":"raise","A5o":"raise","A6o":"raise","A7o":"raise","A8o":"raise","A9o":"raise","ATo":"raise","AJo":"raise","AQo":"raise","AKo":"raise","K9o":"raise","KTo":"raise","KJo":"raise","KQo":"raise","Q9o":"raise","QTo":"raise","QJo":"raise","J9o":"raise","JTo":"raise","T9o":"raise"},"pct":{"raise":39.67},"notation":{"raise":["22+","A2s+","K2s+","Q5s+","J7s+","T7s+","96s+","86s+","75s+","65s","54s","A2o+","K9o+","Q9o+","J9o+","T9o"]}},{"id":"vsopen-UTG+1-EP","scenario":"vsopen","hero":"UTG+1","heroSeats":["UTG+1"],"heroName":"under the gun + 1","behind":7,"vs":"EP","vsName":"early position","actions":["threebet","call","fold"],"checksRest":false,"assign":{"99":"call","QQ":"threebet","KK":"threebet","AA":"threebet","AKs":"threebet","AKo":"threebet","TT":"call","JJ":"call","AQs":"call","AJs":"call","KQs":"call"},"pct":{"threebet":2.56,"call":2.26},"notation":{"threebet":["QQ+","AKs","AKo"],"call":["99-JJ","AQs","AJs","KQs"]}},{"id":"vsopen-UTG+2-EP","scenario":"vsopen","hero":"UTG+2","heroSeats":["UTG+2"],"heroName":"under the gun + 2","behind":6,"vs":"EP","vsName":"early position","actions":["threebet","call","fold"],"checksRest":false,"assign":{"99":"call","QQ":"threebet","KK":"threebet","AA":"threebet","AKs":"threebet","AKo":"threebet","TT":"call","JJ":"call","AQs":"call","AJs":"call","KQs":"call"},"pct":{"threebet":2.56,"call":2.26},"notation":{"threebet":["QQ+","AKs","AKo"],"call":["99-JJ","AQs","AJs","KQs"]}},{"id":"vsopen-LJ-EP","scenario":"vsopen","hero":"LJ","heroSeats":["LJ"],"heroName":"the lojack","behind":5,"vs":"EP","vsName":"early position","actions":["threebet","call","fold"],"checksRest":false,"assign":{"88":"call","99":"call","QQ":"threebet","KK":"threebet","AA":"threebet","AKs":"threebet","AKo":"threebet","TT":"call","JJ":"call","AQs":"call","AJs":"call","KQs":"call","QJs":"call"},"pct":{"threebet":2.56,"call":3.02},"notation":{"threebet":["QQ+","AKs","AKo"],"call":["88-JJ","AQs","AJs","KQs","QJs"]}},{"id":"vsopen-HJ-EP","scenario":"vsopen","hero":"HJ","heroSeats":["HJ"],"heroName":"the hijack","behind":4,"vs":"EP","vsName":"early position","actions":["threebet","call","fold"],"checksRest":false,"assign":{"88":"call","99":"call","QQ":"threebet","KK":"threebet","AA":"threebet","AKs":"threebet","AKo":"threebet","TT":"call","JJ":"call","AQs":"call","AJs":"call","ATs":"call","KQs":"call","KJs":"call","QJs":"call"},"pct":{"threebet":2.56,"call":3.62},"notation":{"threebet":["QQ+","AKs","AKo"],"call":["88-JJ","AQs","AJs","ATs","KQs","KJs","QJs"]}},{"id":"vsopen-HJ-MP","scenario":"vsopen","hero":"HJ","heroSeats":["HJ"],"heroName":"the hijack","behind":4,"vs":"MP","vsName":"middle position","actions":["threebet","call","fold"],"checksRest":false,"assign":{"88":"call","99":"call","JJ":"threebet","QQ":"threebet","KK":"threebet","AA":"threebet","AKs":"threebet","AKo":"threebet","AQs":"threebet","TT":"call","AJs":"call","ATs":"call","KQs":"call","KJs":"call","QJs":"call","JTs":"call"},"pct":{"threebet":3.32,"call":3.17},"notation":{"threebet":["JJ+","AKs","AKo","AQs"],"call":["88-TT","AJs","ATs","KQs","KJs","QJs","JTs"]}},{"id":"vsopen-CO-EP","scenario":"vsopen","hero":"CO","heroSeats":["CO"],"heroName":"the cutoff","behind":3,"vs":"EP","vsName":"early position","actions":["threebet","call","fold"],"checksRest":false,"assign":{"77":"call","88":"call","99":"call","QQ":"threebet","KK":"threebet","AA":"threebet","AKs":"threebet","AKo":"threebet","TT":"call","JJ":"call","AQs":"call","AJs":"call","ATs":"call","KQs":"call","KJs":"call","QJs":"call","JTs":"call"},"pct":{"threebet":2.56,"call":4.37},"notation":{"threebet":["QQ+","AKs","AKo"],"call":["77-JJ","AQs","AJs","ATs","KQs","KJs","QJs","JTs"]}},{"id":"vsopen-CO-MP","scenario":"vsopen","hero":"CO","heroSeats":["CO"],"heroName":"the cutoff","behind":3,"vs":"MP","vsName":"middle position","actions":["threebet","call","fold"],"checksRest":false,"assign":{"77":"call","88":"call","99":"call","JJ":"threebet","QQ":"threebet","KK":"threebet","AA":"threebet","AKs":"threebet","AKo":"threebet","AQs":"threebet","TT":"call","AJs":"call","ATs":"call","A5s":"call","KQs":"call","KJs":"call","KTs":"call","QJs":"call","QTs":"call","JTs":"call","T9s":"call"},"pct":{"threebet":3.32,"call":4.83},"notation":{"threebet":["JJ+","AKs","AKo","AQs"],"call":["77-TT","AJs","ATs","A5s","KQs","KJs","KTs","QJs","QTs","JTs","T9s"]}},{"id":"vsopen-BTN-EP","scenario":"vsopen","hero":"BTN","heroSeats":["BTN"],"heroName":"the button","behind":2,"vs":"EP","vsName":"early position","actions":["threebet","call","fold"],"checksRest":false,"assign":{"66":"call","77":"call","88":"call","99":"call","QQ":"threebet","KK":"threebet","AA":"threebet","AKs":"threebet","AKo":"threebet","AQs":"threebet","TT":"call","JJ":"call","AJs":"call","ATs":"call","KQs":"call","KJs":"call","KTs":"call","QJs":"call","QTs":"call","JTs":"call","T9s":"call"},"pct":{"threebet":2.87,"call":5.43},"notation":{"threebet":["QQ+","AKs","AKo","AQs"],"call":["66-JJ","AJs","ATs","KQs","KJs","KTs","QJs","QTs","JTs","T9s"]}},{"id":"vsopen-BTN-MP","scenario":"vsopen","hero":"BTN","heroSeats":["BTN"],"heroName":"the button","behind":2,"vs":"MP","vsName":"middle position","actions":["threebet","call","fold"],"checksRest":false,"assign":{"55":"call","66":"call","77":"call","88":"call","99":"call","JJ":"threebet","QQ":"threebet","KK":"threebet","AA":"threebet","AKs":"threebet","AKo":"threebet","AQs":"threebet","A5s":"threebet","TT":"call","AJs":"call","ATs":"call","A9s":"call","KQs":"call","KJs":"call","KTs":"call","QJs":"call","QTs":"call","JTs":"call","J9s":"call","T9s":"call","98s":"call","AQo":"call","KQo":"call"},"pct":{"threebet":3.62,"call":8.14},"notation":{"threebet":["JJ+","AKs","AKo","AQs","A5s"],"call":["55-TT","AJs","ATs","A9s","KQs","KJs","KTs","QJs","QTs","JTs","J9s","T9s","98s","AQo","KQo"]}},{"id":"vsopen-BTN-CO","scenario":"vsopen","hero":"BTN","heroSeats":["BTN"],"heroName":"the button","behind":2,"vs":"CO","vsName":"the cutoff","actions":["threebet","call","fold"],"checksRest":false,"assign":{"44":"call","55":"call","66":"call","77":"call","88":"call","99":"call","TT":"threebet","JJ":"threebet","QQ":"threebet","KK":"threebet","AA":"threebet","AKs":"threebet","AQs":"threebet","AJs":"threebet","A4s":"threebet","A5s":"threebet","KQs":"threebet","AKo":"threebet","ATs":"call","A9s":"call","A8s":"call","KJs":"call","KTs":"call","K9s":"call","QJs":"call","QTs":"call","Q9s":"call","JTs":"call","J9s":"call","T9s":"call","98s":"call","87s":"call","AQo":"call","AJo":"call","KQo":"call"},"pct":{"threebet":4.98,"call":9.65},"notation":{"threebet":["TT+","AKs","AQs","AJs","A4s","A5s","KQs","AKo"],"call":["44-99","ATs","A9s","A8s","KJs","KTs","K9s","QJs","QTs","Q9s","JTs","J9s","T9s","98s","87s","AQo","AJo","KQo"]}},{"id":"vsopen-SB-EP","scenario":"vsopen","hero":"SB","heroSeats":["SB"],"heroName":"the small blind","behind":1,"vs":"EP","vsName":"early position","actions":["threebet","call","fold"],"checksRest":false,"assign":{"QQ":"threebet","KK":"threebet","AA":"threebet","AKs":"threebet","AKo":"threebet","AQs":"threebet","TT":"call","JJ":"call","AJs":"call","KQs":"call"},"pct":{"threebet":2.87,"call":1.51},"notation":{"threebet":["QQ+","AKs","AKo","AQs"],"call":["TT-JJ","AJs","KQs"]}},{"id":"vsopen-SB-MP","scenario":"vsopen","hero":"SB","heroSeats":["SB"],"heroName":"the small blind","behind":1,"vs":"MP","vsName":"middle position","actions":["threebet","call","fold"],"checksRest":false,"assign":{"99":"call","JJ":"threebet","QQ":"threebet","KK":"threebet","AA":"threebet","AKs":"threebet","AKo":"threebet","AQs":"threebet","TT":"call","AJs":"call","ATs":"call","KQs":"call","QJs":"call"},"pct":{"threebet":3.32,"call":2.11},"notation":{"threebet":["JJ+","AKs","AKo","AQs"],"call":["99-TT","AJs","ATs","KQs","QJs"]}},{"id":"vsopen-SB-CO","scenario":"vsopen","hero":"SB","heroSeats":["SB"],"heroName":"the small blind","behind":1,"vs":"CO","vsName":"the cutoff","actions":["threebet","call","fold"],"checksRest":false,"assign":{"77":"call","88":"call","99":"call","TT":"threebet","JJ":"threebet","QQ":"threebet","KK":"threebet","AA":"threebet","AKs":"threebet","AQs":"threebet","AJs":"threebet","A5s":"threebet","AKo":"threebet","ATs":"call","KQs":"call","KJs":"call","QJs":"call","JTs":"call"},"pct":{"threebet":4.37,"call":2.87},"notation":{"threebet":["TT+","AKs","AQs","AJs","A5s","AKo"],"call":["77-99","ATs","KQs","KJs","QJs","JTs"]}},{"id":"vsopen-SB-BTN","scenario":"vsopen","hero":"SB","heroSeats":["SB"],"heroName":"the small blind","behind":1,"vs":"BTN","vsName":"the button","actions":["threebet","call","fold"],"checksRest":false,"assign":{"44":"call","55":"call","66":"call","77":"call","88":"threebet","99":"threebet","TT":"threebet","JJ":"threebet","QQ":"threebet","KK":"threebet","AA":"threebet","ATs":"threebet","AJs":"threebet","AQs":"threebet","AKs":"threebet","A3s":"threebet","A4s":"threebet","A5s":"threebet","KJs":"threebet","KQs":"threebet","QJs":"threebet","AQo":"threebet","AKo":"threebet","A9s":"call","KTs":"call","QTs":"call","JTs":"call","T9s":"call","98s":"call","AJo":"call","KQo":"call"},"pct":{"threebet":7.99,"call":5.43},"notation":{"threebet":["88+","ATs+","A3s-A5s","KJs+","QJs","AQo+"],"call":["44-77","A9s","KTs","QTs","JTs","T9s","98s","AJo","KQo"]}},{"id":"vsopen-BB-EP","scenario":"vsopen","hero":"BB","heroSeats":["BB"],"heroName":"the big blind","behind":0,"vs":"EP","vsName":"early position","actions":["threebet","call","fold"],"checksRest":false,"assign":{"22":"call","33":"call","44":"call","55":"call","66":"call","77":"call","88":"call","99":"call","QQ":"threebet","KK":"threebet","AA":"threebet","AKs":"threebet","AKo":"threebet","A5s":"threebet","TT":"call","JJ":"call","AQs":"call","AJs":"call","ATs":"call","A9s":"call","KQs":"call","KJs":"call","KTs":"call","QJs":"call","QTs":"call","JTs":"call","T9s":"call","98s":"call","AQo":"call","AJo":"call","KQo":"call"},"pct":{"threebet":2.87,"call":10.86},"notation":{"threebet":["QQ+","AKs","AKo","A5s"],"call":["22-JJ","AQs","AJs","ATs","A9s","KQs","KJs","KTs","QJs","QTs","JTs","T9s","98s","AQo","AJo","KQo"]}},{"id":"vsopen-BB-MP","scenario":"vsopen","hero":"BB","heroSeats":["BB"],"heroName":"the big blind","behind":0,"vs":"MP","vsName":"middle position","actions":["threebet","call","fold"],"checksRest":false,"assign":{"22":"call","33":"call","44":"call","55":"call","66":"call","77":"call","88":"call","99":"call","JJ":"threebet","QQ":"threebet","KK":"threebet","AA":"threebet","AKs":"threebet","AKo":"threebet","AQs":"threebet","A3s":"threebet","A4s":"threebet","A5s":"threebet","TT":"call","AJs":"call","ATs":"call","A6s":"call","A7s":"call","A8s":"call","A9s":"call","A2s":"call","K9s":"call","KTs":"call","KJs":"call","KQs":"call","Q9s":"call","QTs":"call","QJs":"call","J9s":"call","JTs":"call","T9s":"call","98s":"call","87s":"call","AQo":"call","AJo":"call","ATo":"call","KQo":"call","KJo":"call"},"pct":{"threebet":4.22,"call":14.33},"notation":{"threebet":["JJ+","AKs","AKo","AQs","A3s-A5s"],"call":["22-TT","AJs","ATs","A6s-A9s","A2s","K9s-KQs","Q9s-QJs","J9s-JTs","T9s","98s","87s","AQo","AJo","ATo","KQo","KJo"]}},{"id":"vsopen-BB-CO","scenario":"vsopen","hero":"BB","heroSeats":["BB"],"heroName":"the big blind","behind":0,"vs":"CO","vsName":"the cutoff","actions":["threebet","call","fold"],"checksRest":false,"assign":{"22":"call","33":"call","44":"call","55":"call","66":"call","77":"call","88":"call","99":"call","TT":"threebet","JJ":"threebet","QQ":"threebet","KK":"threebet","AA":"threebet","AKs":"threebet","AQs":"threebet","AJs":"threebet","A2s":"threebet","A3s":"threebet","A4s":"threebet","A5s":"threebet","KQs":"threebet","AKo":"threebet","AQo":"threebet","A6s":"call","A7s":"call","A8s":"call","A9s":"call","ATs":"call","K7s":"call","K8s":"call","K9s":"call","KTs":"call","KJs":"call","Q8s":"call","Q9s":"call","QTs":"call","QJs":"call","J8s":"call","J9s":"call","JTs":"call","T8s":"call","T9s":"call","98s":"call","87s":"call","76s":"call","65s":"call","AJo":"call","ATo":"call","A9o":"call","KQo":"call","KJo":"call","KTo":"call","QJo":"call","QTo":"call","JTo":"call"},"pct":{"threebet":6.49,"call":18.7},"notation":{"threebet":["TT+","AKs","AQs","AJs","A2s-A5s","KQs","AKo","AQo"],"call":["22-99","A6s-ATs","K7s-KJs","Q8s-QJs","J8s-JTs","T8s-T9s","98s","87s","76s","65s","AJo","ATo","A9o","KQo","KJo","KTo","QJo","QTo","JTo"]}},{"id":"vsopen-BB-BTN","scenario":"vsopen","hero":"BB","heroSeats":["BB"],"heroName":"the big blind","behind":0,"vs":"BTN","vsName":"the button","actions":["threebet","call","fold"],"checksRest":false,"assign":{"22":"call","33":"call","44":"call","55":"call","66":"call","77":"call","88":"call","99":"threebet","TT":"threebet","JJ":"threebet","QQ":"threebet","KK":"threebet","AA":"threebet","ATs":"threebet","AJs":"threebet","AQs":"threebet","AKs":"threebet","A2s":"threebet","A3s":"threebet","A4s":"threebet","A5s":"threebet","KJs":"threebet","KQs":"threebet","QJs":"threebet","JTs":"threebet","AJo":"threebet","AQo":"threebet","AKo":"threebet","KQo":"threebet","A6s":"call","A7s":"call","A8s":"call","A9s":"call","K5s":"call","K6s":"call","K7s":"call","K8s":"call","K9s":"call","KTs":"call","Q7s":"call","Q8s":"call","Q9s":"call","QTs":"call","J7s":"call","J8s":"call","J9s":"call","T7s":"call","T8s":"call","T9s":"call","96s":"call","97s":"call","98s":"call","86s":"call","87s":"call","75s":"call","76s":"call","65s":"call","54s":"call","A2o":"call","A3o":"call","A4o":"call","A5o":"call","A6o":"call","A7o":"call","A8o":"call","A9o":"call","ATo":"call","K9o":"call","KTo":"call","KJo":"call","Q9o":"call","QTo":"call","QJo":"call","J9o":"call","JTo":"call","T9o":"call","98o":"call"},"pct":{"threebet":9.95,"call":29.11},"notation":{"threebet":["99+","ATs+","A2s-A5s","KJs+","QJs","JTs","AJo+","KQo"],"call":["22-88","A6s-A9s","K5s-KTs","Q7s-QTs","J7s-J9s","T7s-T9s","96s-98s","86s-87s","75s-76s","65s","54s","A2o-ATo","K9o-KJo","Q9o-QJo","J9o-JTo","T9o","98o"]}},{"id":"vsopen-BB-SB","scenario":"vsopen","hero":"BB","heroSeats":["BB"],"heroName":"the big blind","behind":0,"vs":"SB","vsName":"the small blind","actions":["threebet","call","fold"],"checksRest":false,"assign":{"22":"call","33":"call","44":"call","55":"call","66":"call","77":"threebet","88":"threebet","99":"threebet","TT":"threebet","JJ":"threebet","QQ":"threebet","KK":"threebet","AA":"threebet","A9s":"threebet","ATs":"threebet","AJs":"threebet","AQs":"threebet","AKs":"threebet","A2s":"threebet","A3s":"threebet","A4s":"threebet","A5s":"threebet","KTs":"threebet","KJs":"threebet","KQs":"threebet","QTs":"threebet","QJs":"threebet","JTs":"threebet","T9s":"threebet","ATo":"threebet","AJo":"threebet","AQo":"threebet","AKo":"threebet","KJo":"threebet","KQo":"threebet","A6s":"call","A7s":"call","A8s":"call","K2s":"call","K3s":"call","K4s":"call","K5s":"call","K6s":"call","K7s":"call","K8s":"call","K9s":"call","Q5s":"call","Q6s":"call","Q7s":"call","Q8s":"call","Q9s":"call","J6s":"call","J7s":"call","J8s":"call","J9s":"call","T6s":"call","T7s":"call","T8s":"call","95s":"call","96s":"call","97s":"call","98s":"call","85s":"call","86s":"call","87s":"call","74s":"call","75s":"call","76s":"call","64s":"call","65s":"call","53s":"call","54s":"call","43s":"call","A2o":"call","A3o":"call","A4o":"call","A5o":"call","A6o":"call","A7o":"call","A8o":"call","A9o":"call","K7o":"call","K8o":"call","K9o":"call","KTo":"call","Q8o":"call","Q9o":"call","QTo":"call","QJo":"call","J8o":"call","J9o":"call","JTo":"call","T8o":"call","T9o":"call","97o":"call","98o":"call","87o":"call"},"pct":{"threebet":13.88,"call":35.44},"notation":{"threebet":["77+","A9s+","A2s-A5s","KTs+","QTs+","JTs","T9s","ATo+","KJo+"],"call":["22-66","A6s-A8s","K2s-K9s","Q5s-Q9s","J6s-J9s","T6s-T8s","95s-98s","85s-87s","74s-76s","64s-65s","53s-54s","43s","A2o-A9o","K7o-KTo","Q8o-QJo","J8o-JTo","T8o-T9o","97o-98o","87o"]}},{"id":"vslimp-EP","scenario":"vslimp","hero":"EP","heroSeats":["UTG+1","UTG+2","LJ"],"heroName":"UTG+1 / UTG+2 / LJ","behind":5,"vs":null,"vsName":null,"actions":["raise","call","fold"],"checksRest":false,"assign":{"22":"call","33":"call","44":"call","55":"call","66":"call","77":"call","88":"call","99":"call","TT":"raise","JJ":"raise","QQ":"raise","KK":"raise","AA":"raise","AJs":"raise","AQs":"raise","AKs":"raise","KQs":"raise","AQo":"raise","AKo":"raise","A8s":"call","A9s":"call","ATs":"call","KJs":"call","QJs":"call","JTs":"call","T9s":"call"},"pct":{"raise":5.28,"call":5.73},"notation":{"raise":["TT+","AJs+","KQs","AQo+"],"call":["22-99","A8s-ATs","KJs","QJs","JTs","T9s"]}},{"id":"vslimp-MP","scenario":"vslimp","hero":"MP","heroSeats":["HJ","CO"],"heroName":"HJ / CO","behind":3,"vs":null,"vsName":null,"actions":["raise","call","fold"],"checksRest":false,"assign":{"22":"call","33":"call","44":"call","55":"call","66":"call","77":"raise","88":"raise","99":"raise","TT":"raise","JJ":"raise","QQ":"raise","KK":"raise","AA":"raise","A9s":"raise","ATs":"raise","AJs":"raise","AQs":"raise","AKs":"raise","KTs":"raise","KJs":"raise","KQs":"raise","QJs":"raise","JTs":"raise","ATo":"raise","AJo":"raise","AQo":"raise","AKo":"raise","KQo":"raise","A2s":"call","A3s":"call","A4s":"call","A5s":"call","A6s":"call","A7s":"call","A8s":"call","K9s":"call","QTs":"call","J9s":"call","T9s":"call","98s":"call"},"pct":{"raise":11.16,"call":5.88},"notation":{"raise":["77+","A9s+","KTs+","QJs","JTs","ATo+","KQo"],"call":["22-66","A2s-A8s","K9s","QTs","J9s","T9s","98s"]}},{"id":"vslimp-BTN","scenario":"vslimp","hero":"BTN","heroSeats":["BTN"],"heroName":"the button","behind":2,"vs":null,"vsName":null,"actions":["raise","call","fold"],"checksRest":false,"assign":{"22":"call","33":"call","44":"call","55":"raise","66":"raise","77":"raise","88":"raise","99":"raise","TT":"raise","JJ":"raise","QQ":"raise","KK":"raise","AA":"raise","A2s":"raise","A3s":"raise","A4s":"raise","A5s":"raise","A6s":"raise","A7s":"raise","A8s":"raise","A9s":"raise","ATs":"raise","AJs":"raise","AQs":"raise","AKs":"raise","K8s":"raise","K9s":"raise","KTs":"raise","KJs":"raise","KQs":"raise","Q9s":"raise","QTs":"raise","QJs":"raise","J9s":"raise","JTs":"raise","T9s":"raise","A9o":"raise","ATo":"raise","AJo":"raise","AQo":"raise","AKo":"raise","KJo":"raise","KQo":"raise","QJo":"raise","K2s":"call","K3s":"call","K4s":"call","K5s":"call","K6s":"call","K7s":"call","Q5s":"call","Q6s":"call","Q7s":"call","Q8s":"call","J7s":"call","J8s":"call","T8s":"call","98s":"call","87s":"call","76s":"call"},"pct":{"raise":18.7,"call":6.18},"notation":{"raise":["55+","A2s+","K8s+","Q9s+","J9s+","T9s","A9o+","KJo+","QJo"],"call":["22-44","K2s-K7s","Q5s-Q8s","J7s-J8s","T8s","98s","87s","76s"]}},{"id":"vslimp-SB","scenario":"vslimp","hero":"SB","heroSeats":["SB"],"heroName":"the small blind","behind":1,"vs":null,"vsName":null,"actions":["raise","call","fold"],"checksRest":false,"assign":{"22":"call","33":"call","44":"call","55":"call","66":"raise","77":"raise","88":"raise","99":"raise","TT":"raise","JJ":"raise","QQ":"raise","KK":"raise","AA":"raise","A7s":"raise","A8s":"raise","A9s":"raise","ATs":"raise","AJs":"raise","AQs":"raise","AKs":"raise","KTs":"raise","KJs":"raise","KQs":"raise","QJs":"raise","ATo":"raise","AJo":"raise","AQo":"raise","AKo":"raise","KQo":"raise","A2s":"call","A3s":"call","A4s":"call","A5s":"call","A6s":"call","K7s":"call","K8s":"call","K9s":"call","QTs":"call","JTs":"call","T9s":"call","98s":"call"},"pct":{"raise":11.92,"call":5.43},"notation":{"raise":["66+","A7s+","KTs+","QJs","ATo+","KQo"],"call":["22-55","A2s-A6s","K7s-K9s","QTs","JTs","T9s","98s"]}},{"id":"vslimp-BB","scenario":"vslimp","hero":"BB","heroSeats":["BB"],"heroName":"the big blind","behind":0,"vs":null,"vsName":null,"actions":["raise","check"],"checksRest":true,"assign":{"66":"raise","77":"raise","88":"raise","99":"raise","TT":"raise","JJ":"raise","QQ":"raise","KK":"raise","AA":"raise","A8s":"raise","A9s":"raise","ATs":"raise","AJs":"raise","AQs":"raise","AKs":"raise","KTs":"raise","KJs":"raise","KQs":"raise","QJs":"raise","JTs":"raise","ATo":"raise","AJo":"raise","AQo":"raise","AKo":"raise","KQo":"raise"},"pct":{"raise":11.92,"call":0},"notation":{"raise":["66+","A8s+","KTs+","QJs","JTs","ATo+","KQo"],"call":[]}}]};
+  const SPOTS = DATA.spots;
+  const SEATS = DATA.seats;
+  const BUCKETS = DATA.buckets;
+
   const RANKS = "23456789TJQKA";
   const GRID = "AKQJT98765432";
-  const ri = (c) => RANKS.indexOf(c);
-
-  function expandToken(token) {
-    const plus = token.endsWith("+");
-    const body = plus ? token.slice(0, -1) : token;
-    if (body.length === 2 && body[0] === body[1]) {
-      const from = ri(body[0]);
-      if (!plus) return [body];
-      const out = [];
-      for (let r = from; r < 13; r++) out.push(RANKS[r] + RANKS[r]);
-      return out;
-    }
-    const hi = ri(body[0]), lo = ri(body[1]), sfx = body[2];
-    if (!plus) return [body];
-    const out = [];
-    for (let r = lo; r < hi; r++) out.push(RANKS[hi] + RANKS[r] + sfx);
-    return out;
-  }
-
-  const expand = (tokens) => {
-    const s = new Set();
-    for (const t of tokens) for (const h of expandToken(t)) s.add(h);
-    return s;
-  };
-
-  const combosOf = (h) => (h.length === 2 ? 6 : h[2] === "s" ? 4 : 12);
-  const pctOf = (hands) => {
-    let c = 0;
-    for (const h of hands) c += combosOf(h);
-    return (100 * c) / 1326;
-  };
-
-  // Seats in order of action. Only the eight that can open first-in are drilled.
-  const SEATS = ["UTG", "UTG+1", "UTG+2", "LJ", "HJ", "CO", "BTN", "SB", "BB"];
-
-  const POSITIONS = [
-    { id: "UTG",   label: "UTG",   full: "Under the gun",
-      notation: ["66+", "ATs+", "KTs+", "QJs", "JTs", "AJo+"] },
-    { id: "UTG1",  label: "UTG+1", full: "Under the gun + 1",
-      notation: ["55+", "A9s+", "KTs+", "QTs+", "JTs", "T9s", "AJo+", "KQo"] },
-    { id: "UTG2",  label: "UTG+2", full: "Under the gun + 2",
-      notation: ["44+", "A8s+", "K9s+", "Q9s+", "J9s+", "T9s", "98s", "ATo+", "KQo"] },
-    { id: "LJ",    label: "LJ",    full: "Lojack",
-      notation: ["33+", "A7s+", "A5s", "K9s+", "Q9s+", "J9s+", "T8s+", "98s", "87s", "ATo+", "KJo+"] },
-    { id: "HJ",    label: "HJ",    full: "Hijack",
-      notation: ["22+", "A2s+", "K8s+", "Q8s+", "J8s+", "T8s+", "97s+", "87s", "ATo+", "KJo+", "QJo"] },
-    { id: "CO",    label: "CO",    full: "Cutoff",
-      notation: ["22+", "A2s+", "K5s+", "Q8s+", "J8s+", "T7s+", "96s+", "86s+", "75s+", "65s", "A9o+", "KTo+", "QTo+", "JTo"] },
-    { id: "BTN",   label: "BTN",   full: "Button",
-      notation: ["22+", "A2s+", "K2s+", "Q4s+", "J6s+", "T6s+", "95s+", "85s+", "74s+", "64s+", "53s+", "43s", "A2o+", "K8o+", "Q9o+", "J9o+", "T9o", "98o"] },
-    { id: "SB",    label: "SB",    full: "Small blind",
-      notation: ["22+", "A2s+", "K2s+", "Q5s+", "J7s+", "T7s+", "96s+", "86s+", "75s+", "65s", "54s", "A2o+", "K9o+", "Q9o+", "J9o+", "T9o"] },
-  ].map((p) => {
-    const hands = expand(p.notation);
-    return { ...p, hands, percent: pctOf(hands), behind: SEATS.length - 1 - SEATS.indexOf(p.label) };
-  });
-
-  const byId = new Map(POSITIONS.map((p) => [p.id, p]));
-
-  // ---------- cards ----------
   const SUITS = ["\u2663", "\u2666", "\u2665", "\u2660"];
   const RED = [false, true, true, false];
+
+  // "You're ..." reads naturally for every seat only if the preposition varies.
+  const SEAT_PHRASE = {
+    "UTG": "under the gun",
+    "UTG+1": "under the gun + 1",
+    "UTG+2": "under the gun + 2",
+    "LJ": "in the lojack",
+    "HJ": "in the hijack",
+    "CO": "in the cutoff",
+    "BTN": "on the button",
+    "SB": "in the small blind",
+    "BB": "in the big blind",
+  };
+
+  const ACTION = {
+    raise:    { label: "Raise",  key: "r", verb: "raising" },
+    threebet: { label: "3-Bet",  key: "t", verb: "3-betting" },
+    call:     { label: "Call",   key: "c", verb: "calling" },
+    check:    { label: "Check",  key: "x", verb: "checking" },
+    fold:     { label: "Fold",   key: "f", verb: "folding" },
+  };
+
+  const SCENARIOS = {
+    rfi:    { label: "Folded to you", short: "Folded to you" },
+    vsopen: { label: "Opened to you", short: "Facing a raise" },
+    vslimp: { label: "Limped to you", short: "Facing a limp" },
+  };
+
   const rankOf = (c) => c >> 2;
   const suitOf = (c) => c & 3;
 
@@ -423,6 +420,12 @@
     const lo = Math.min(rankOf(a), rankOf(b));
     if (hi === lo) return RANKS[hi] + RANKS[hi];
     return RANKS[hi] + RANKS[lo] + (suitOf(a) === suitOf(b) ? "s" : "o");
+  }
+
+  function handAt(row, col) {
+    const hi = GRID[row], lo = GRID[col];
+    if (row === col) return hi + hi;
+    return row < col ? hi + lo + "s" : lo + hi + "o";
   }
 
   function cardEl(card) {
@@ -434,20 +437,16 @@
     return el;
   }
 
-  function handAt(row, col) {
-    const hi = GRID[row], lo = GRID[col];
-    if (row === col) return hi + hi;
-    return row < col ? hi + lo + "s" : lo + hi + "o";
-  }
+  const el = (id) => document.getElementById(id);
+  const pick = (list) => list[Math.floor(Math.random() * list.length)];
 
-  const describeHand = (hand) => {
-    if (hand.length === 2) return "pocket pair";
-    return hand[2] === "s" ? "suited" : "offsuit";
-  };
+  /** Whatever a hand is not explicitly assigned is the spot's default action. */
+  const defaultAction = (spot) => (spot.checksRest ? "check" : "fold");
+  const actionFor = (spot, hand) => spot.assign[hand] || defaultAction(spot);
 
   // ---------- theme ----------
   const root = document.documentElement;
-  const themeSeg = document.getElementById("theme-seg");
+  const themeSeg = el("theme-seg");
 
   function applyTheme(choice) {
     if (choice === "auto") root.removeAttribute("data-theme");
@@ -457,125 +456,239 @@
     }
     try { localStorage.setItem("pt-theme", choice); } catch (e) { /* private mode */ }
   }
-
-  let saved = "auto";
-  try { saved = localStorage.getItem("pt-theme") || "auto"; } catch (e) { /* ignore */ }
-  applyTheme(saved);
+  let savedTheme = "auto";
+  try { savedTheme = localStorage.getItem("pt-theme") || "auto"; } catch (e) { /* ignore */ }
+  applyTheme(savedTheme);
   for (const b of themeSeg.querySelectorAll("button")) {
     b.onclick = () => applyTheme(b.dataset.themeChoice);
   }
 
-  // ---------- grid rendering ----------
-  function renderGrid(target, position, mark) {
+  // ---------- chart visibility ----------
+  // Seeing the answer while you decide turns a test into a reading exercise,
+  // so the default reveals the chart only once you have committed.
+  const chartModeSeg = el("chart-mode-seg");
+  let chartMode = "after";
+
+  function applyChartMode(mode) {
+    chartMode = mode;
+    for (const b of chartModeSeg.querySelectorAll("button")) {
+      b.setAttribute("aria-pressed", String(b.dataset.chartMode === mode));
+    }
+    try { localStorage.setItem("pt-chart", mode); } catch (e) { /* private mode */ }
+  }
+
+  /** Shows the grid, or the placeholder, for the current mode and answer state. */
+  function syncChartVisibility() {
+    const visible = chartMode === "always" || (chartMode === "after" && answered);
+    el("chart-body").hidden = !visible;
+    el("chart-hidden").hidden = visible;
+    // The range percentages give the answer away just as readily as the grid.
+    el("grid-pct").hidden = !visible;
+    if (chartMode === "never") {
+      el("chart-hidden").innerHTML = "Chart off &mdash; switch to After answering to review your hand.";
+    } else {
+      el("chart-hidden").innerHTML = "Chart hidden &mdash; answer to reveal where your hand sits.";
+    }
+  }
+
+  let savedChart = "after";
+  try { savedChart = localStorage.getItem("pt-chart") || "after"; } catch (e) { /* ignore */ }
+  applyChartMode(["after", "always", "never"].includes(savedChart) ? savedChart : "after");
+  for (const b of chartModeSeg.querySelectorAll("button")) {
+    b.onclick = () => {
+      applyChartMode(b.dataset.chartMode);
+      if (spot) {
+        renderGrid(el("drill-grid"), spot.spot, answered ? spot.hand : null);
+        renderLegend(el("drill-legend"), spot.spot,
+          answered ? spot.hand + " is outlined" : "your hand is outlined once you answer");
+      }
+      syncChartVisibility();
+    };
+  }
+
+  // ---------- grid ----------
+  function renderGrid(target, spot, mark) {
     target.replaceChildren();
     for (let row = 0; row < 13; row++) {
       for (let col = 0; col < 13; col++) {
         const hand = handAt(row, col);
-        const inRange = position.hands.has(hand);
+        const action = actionFor(spot, hand);
         const cell = document.createElement("div");
-        cell.className = "cell" + (inRange ? " in" : "") + (hand === mark ? " mark" : "");
+        cell.className = "cell c-" + action + (hand === mark ? " mark" : "");
         cell.textContent = hand;
-        cell.title = `${hand} \u2014 ${inRange ? "open" : "fold"} from ${position.label} (${combosOf(hand)} combos)`;
+        cell.title = `${hand} \u2014 ${ACTION[action].label.toLowerCase()}`;
         target.append(cell);
       }
     }
   }
 
+  function renderLegend(target, spot, extra) {
+    target.replaceChildren();
+    for (const action of spot.actions) {
+      const span = document.createElement("span");
+      const sw = document.createElement("i");
+      sw.className = "sw";
+      if (action === "fold") {
+        sw.style.background = "var(--fold-wash)";
+        sw.style.border = "1px solid var(--line)";
+      } else {
+        sw.style.background = `var(--${action === "threebet" ? "raise" : action})`;
+      }
+      span.append(sw, document.createTextNode(ACTION[action].label.toLowerCase()));
+      target.append(span);
+    }
+    if (extra) {
+      const note = document.createElement("span");
+      note.style.color = "var(--faint)";
+      note.textContent = extra;
+      target.append(note);
+    }
+  }
+
+  function pctLine(spot) {
+    return spot.actions
+      .filter((a) => spot.pct[a] !== undefined)
+      .map((a) => `${ACTION[a].label.toLowerCase()} ${spot.pct[a].toFixed(1)}%`)
+      .join(" \u00b7 ");
+  }
+
   // ---------- drill ----------
-  const el = (id) => document.getElementById(id);
-  let active = POSITIONS.map((p) => p.id);
+  let enabled = Object.keys(SCENARIOS);
   let spot = null;
-  let done = false;
+  let answered = false;
   const tally = new Map();
   let totals = { n: 0, right: 0, streak: 0, best: 0 };
 
-  function dealSpot() {
-    const pool = POSITIONS.filter((p) => active.includes(p.id));
-    const position = pool[Math.floor(Math.random() * pool.length)];
+  function deal() {
+    const pool = SPOTS.filter((s) => enabled.includes(s.scenario));
+    const chosen = pick(pool);
+    const heroSeat = pick(chosen.heroSeats);
+
+    let villainSeat = null;
+    if (chosen.scenario === "vsopen") {
+      const candidates = BUCKETS[chosen.vs].seats.filter(
+        (s) => SEATS.indexOf(s) < SEATS.indexOf(heroSeat),
+      );
+      villainSeat = candidates.length ? pick(candidates) : BUCKETS[chosen.vs].seats[0];
+    } else if (chosen.scenario === "vslimp") {
+      const candidates = SEATS.filter((s) => SEATS.indexOf(s) < SEATS.indexOf(heroSeat));
+      villainSeat = candidates.length ? pick(candidates) : null;
+    }
+
     const a = Math.floor(Math.random() * 52);
     let b = Math.floor(Math.random() * 51);
     if (b >= a) b += 1;
-    return { position, cards: [a, b], hand: handOf(a, b) };
+    return { spot: chosen, heroSeat, villainSeat, cards: [a, b], hand: handOf(a, b) };
   }
 
-  function renderSeats(position) {
+  function renderSeats(state) {
     const strip = el("seats");
     strip.replaceChildren();
-    const heroIndex = SEATS.indexOf(position.label);
+    const heroIndex = SEATS.indexOf(state.heroSeat);
     SEATS.forEach((name, i) => {
       const s = document.createElement("span");
-      s.className = "seat" + (i === heroIndex ? " hero" : i > heroIndex ? " behind" : "");
+      let cls = "seat";
+      if (name === state.heroSeat) cls += " hero";
+      else if (name === state.villainSeat) cls += " villain";
+      else if (i > heroIndex) cls += " behind";
+      s.className = cls;
       s.textContent = name;
       strip.append(s);
     });
-    el("behind").innerHTML = `You are in the <b>${position.full.toLowerCase()}</b>. `
-      + `Everyone before you folded, and <b>${position.behind}</b> player${position.behind === 1 ? "" : "s"} `
-      + `still act behind you.`;
+  }
+
+  function storyFor(state) {
+    const phrase = SEAT_PHRASE[state.heroSeat];
+    const behind = SEATS.length - 1 - SEATS.indexOf(state.heroSeat);
+    const behindText = `<b>${behind}</b> player${behind === 1 ? "" : "s"} still to act behind you`;
+    const isAre = behind === 1 ? "is" : "are";
+    if (state.spot.scenario === "rfi") {
+      return `It folds to you. You're <b>${phrase}</b>, with ${behindText}.`;
+    }
+    if (state.spot.scenario === "vsopen") {
+      return `You're <b>${phrase}</b>. <b>${state.villainSeat}</b> raises `
+        + `(${state.spot.vsName}), and there ${isAre} ${behindText}.`;
+    }
+    return `You're <b>${phrase}</b>. <b>${state.villainSeat}</b> limps, with ${behindText}.`;
+  }
+
+  function questionFor(spot) {
+    return spot.actions.map((a) => ACTION[a].label).join(", ").replace(/, ([^,]*)$/, " or $1") + "?";
   }
 
   function newHand() {
-    spot = dealSpot();
-    done = false;
-    renderSeats(spot.position);
+    spot = deal();
+    answered = false;
+    renderSeats(spot);
+    el("story").innerHTML = storyFor(spot) + " " + questionFor(spot.spot);
     el("cards").replaceChildren(cardEl(spot.cards[0]), cardEl(spot.cards[1]));
     el("hand").textContent = spot.hand;
-    el("hand-sub").textContent = describeHand(spot.hand);
-    el("grid-title").textContent = spot.position.full + " opening range";
-    el("grid-pct").textContent = spot.position.percent.toFixed(1) + "% of hands";
-    el("mark-hint").textContent = "your hand is outlined";
-    renderGrid(el("drill-grid"), spot.position, null);
+    el("hand-sub").textContent =
+      spot.hand.length === 2 ? "pocket pair" : spot.hand[2] === "s" ? "suited" : "offsuit";
+
+    el("grid-title").textContent = SCENARIOS[spot.spot.scenario].short
+      + (spot.spot.vs ? ` from ${spot.spot.vsName}` : "");
+    el("grid-pct").textContent = pctLine(spot.spot);
+    renderGrid(el("drill-grid"), spot.spot, null);
+    renderLegend(el("drill-legend"), spot.spot, "your hand is outlined once you answer");
+    syncChartVisibility();
 
     const area = el("answer-area");
     area.replaceChildren();
     const acts = document.createElement("div");
     acts.className = "acts";
-    const raise = document.createElement("button");
-    raise.type = "button"; raise.className = "act raise"; raise.textContent = "Raise";
-    raise.onclick = () => answer(true);
-    const fold = document.createElement("button");
-    fold.type = "button"; fold.className = "act"; fold.textContent = "Fold";
-    fold.onclick = () => answer(false);
+    for (const action of spot.spot.actions) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "act a-" + action;
+      b.textContent = ACTION[action].label;
+      b.onclick = () => answer(action);
+      acts.append(b);
+    }
     const hint = document.createElement("span");
-    hint.className = "hint"; hint.textContent = "R / F";
-    acts.append(raise, fold, hint);
+    hint.className = "hint";
+    hint.textContent = spot.spot.actions.map((a) => ACTION[a].key.toUpperCase()).join(" / ");
+    acts.append(hint);
     area.append(acts);
   }
 
-  function answer(raised) {
-    if (done || !spot) return;
-    done = true;
-    const shouldRaise = spot.position.hands.has(spot.hand);
-    const correct = raised === shouldRaise;
+  function answer(chosen) {
+    if (answered || !spot) return;
+    answered = true;
+    const correctAction = actionFor(spot.spot, spot.hand);
+    const right = chosen === correctAction;
 
     totals.n += 1;
-    if (correct) {
+    if (right) {
       totals.right += 1;
       totals.streak += 1;
       totals.best = Math.max(totals.best, totals.streak);
     } else {
       totals.streak = 0;
     }
-    const t = tally.get(spot.position.id) || { n: 0, right: 0 };
-    t.n += 1; if (correct) t.right += 1;
-    tally.set(spot.position.id, t);
+    for (const key of [spot.spot.scenario, "spot:" + spot.spot.id]) {
+      const t = tally.get(key) || { n: 0, right: 0 };
+      t.n += 1; if (right) t.right += 1;
+      tally.set(key, t);
+    }
 
-    renderGrid(el("drill-grid"), spot.position, spot.hand);
-    el("mark-hint").textContent = spot.hand + " is outlined";
+    renderGrid(el("drill-grid"), spot.spot, spot.hand);
+    renderLegend(el("drill-legend"), spot.spot, spot.hand + " is outlined");
+    syncChartVisibility();
 
     const area = el("answer-area");
     area.replaceChildren();
 
     const box = document.createElement("div");
-    box.className = "verdict " + (correct ? "ok" : "no");
+    box.className = "verdict " + (right ? "ok" : "no");
     const head = document.createElement("div");
     head.className = "head";
-    head.textContent = correct ? "Correct" : (shouldRaise ? "That's a raise" : "That's a fold");
+    head.textContent = right ? "Correct" : `${ACTION[correctAction].label} is the play`;
     const body = document.createElement("p");
     body.className = "body";
-    body.style.margin = "0";
-    body.innerHTML = `<b>${spot.hand}</b> is ${shouldRaise ? "in" : "not in"} the `
-      + `${spot.position.full.toLowerCase()} opening range `
-      + `(<b>${spot.position.percent.toFixed(1)}%</b> of hands, ${spot.position.behind} left to act).`;
+    body.innerHTML = `<b>${spot.hand}</b> is a <b>${ACTION[correctAction].label.toLowerCase()}</b> here`
+      + (right ? "" : `, not a ${ACTION[chosen].label.toLowerCase()}`)
+      + `. ${pctLine(spot.spot)}.`;
     box.append(head, body);
 
     const acts = document.createElement("div");
@@ -592,6 +705,29 @@
     renderStats();
   }
 
+  function barRow(name, rate, count) {
+    const row = document.createElement("div");
+    row.className = "bar-row";
+    const label = document.createElement("span");
+    label.className = "name"; label.textContent = name; label.title = name;
+    const track = document.createElement("div");
+    track.className = "track";
+    const fill = document.createElement("div");
+    fill.className = "fill" + (rate < 70 ? " weak" : "");
+    fill.style.width = rate + "%";
+    track.append(fill);
+    const val = document.createElement("span");
+    val.className = "val"; val.textContent = `${rate.toFixed(0)}% (${count})`;
+    row.append(label, track, val);
+    return row;
+  }
+
+  function spotName(s) {
+    if (s.scenario === "rfi") return `Open from ${s.hero}`;
+    if (s.scenario === "vsopen") return `${s.hero} vs ${s.vs}`;
+    return `${s.heroSeats.join("/")} vs limp`;
+  }
+
   function renderStats() {
     if (totals.n === 0) return;
     el("stats").hidden = false;
@@ -603,53 +739,45 @@
     el("s-streak").textContent = totals.streak;
     el("s-best").textContent = totals.best;
 
-    const bars = el("bars");
-    bars.replaceChildren();
-    let worst = null;
-    for (const p of POSITIONS) {
-      const t = tally.get(p.id);
+    const byScenario = el("bars-scenario");
+    byScenario.replaceChildren();
+    for (const key of Object.keys(SCENARIOS)) {
+      const t = tally.get(key);
       if (!t) continue;
-      const rate = (100 * t.right) / t.n;
-      if (t.n >= 3 && (!worst || rate < worst.rate)) worst = { p, rate };
-
-      const row = document.createElement("div");
-      row.className = "bar-row";
-      const name = document.createElement("span");
-      name.className = "name"; name.textContent = p.label;
-      const track = document.createElement("div");
-      track.className = "track";
-      const fill = document.createElement("div");
-      fill.className = "fill" + (rate < 70 ? " weak" : "");
-      fill.style.width = rate + "%";
-      track.append(fill);
-      const val = document.createElement("span");
-      val.className = "val";
-      val.textContent = `${rate.toFixed(0)}% (${t.n})`;
-      row.append(name, track, val);
-      bars.append(row);
+      byScenario.append(barRow(SCENARIOS[key].short, (100 * t.right) / t.n, t.n));
     }
 
-    el("leak").textContent = worst && worst.rate < 85
-      ? `Weakest seat so far: ${worst.p.full} at ${worst.rate.toFixed(0)}%. Use the filter below to drill it on its own.`
-      : "";
+    // Only spots with enough attempts to mean anything.
+    const weak = [];
+    for (const s of SPOTS) {
+      const t = tally.get("spot:" + s.id);
+      if (!t || t.n < 3) continue;
+      const rate = (100 * t.right) / t.n;
+      if (rate < 100) weak.push({ name: spotName(s), rate, n: t.n });
+    }
+    weak.sort((a, b) => a.rate - b.rate);
+    const weakWrap = el("weak-wrap");
+    const bars = el("bars-weak");
+    bars.replaceChildren();
+    weakWrap.hidden = weak.length === 0;
+    for (const w of weak.slice(0, 5)) bars.append(barRow(w.name, w.rate, w.n));
   }
 
-  // ---------- position filter ----------
-  const filterSeg = el("filter-seg");
-  for (const p of POSITIONS) {
+  // ---------- filters ----------
+  const scenarioSeg = el("scenario-seg");
+  for (const key of Object.keys(SCENARIOS)) {
     const b = document.createElement("button");
     b.type = "button";
-    b.textContent = p.label;
+    b.textContent = SCENARIOS[key].label;
     b.setAttribute("aria-pressed", "true");
     b.onclick = () => {
       const on = b.getAttribute("aria-pressed") === "true";
-      // Never let the last position be switched off.
-      if (on && active.length === 1) return;
+      if (on && enabled.length === 1) return; // never leave nothing to drill
       b.setAttribute("aria-pressed", String(!on));
-      active = on ? active.filter((id) => id !== p.id) : [...active, p.id];
+      enabled = on ? enabled.filter((k) => k !== key) : [...enabled, key];
       newHand();
     };
-    filterSeg.append(b);
+    scenarioSeg.append(b);
   }
 
   el("reset").onclick = () => {
@@ -660,29 +788,69 @@
   };
 
   // ---------- charts ----------
-  let chartId = "UTG";
-  const chartSeg = el("chart-seg");
-  for (const p of POSITIONS) {
+  let chartScenario = "rfi";
+  let chartSpotId = SPOTS.find((s) => s.scenario === "rfi").id;
+
+  const chartScenarioSeg = el("chart-scenario-seg");
+  for (const key of Object.keys(SCENARIOS)) {
     const b = document.createElement("button");
     b.type = "button";
-    b.textContent = p.label;
-    b.setAttribute("aria-pressed", String(p.id === chartId));
-    b.onclick = () => { chartId = p.id; syncChart(); };
-    chartSeg.append(b);
+    b.textContent = SCENARIOS[key].label;
+    b.setAttribute("aria-pressed", String(key === chartScenario));
+    b.onclick = () => {
+      chartScenario = key;
+      chartSpotId = SPOTS.find((s) => s.scenario === key).id;
+      syncChart();
+    };
+    chartScenarioSeg.append(b);
   }
 
   function syncChart() {
-    const p = byId.get(chartId);
-    for (const b of chartSeg.querySelectorAll("button")) {
-      b.setAttribute("aria-pressed", String(b.textContent === p.label));
+    for (const b of chartScenarioSeg.querySelectorAll("button")) {
+      b.setAttribute("aria-pressed", String(b.textContent === SCENARIOS[chartScenario].label));
     }
-    el("chart-title").textContent = p.full;
-    let combos = 0;
-    for (const h of p.hands) combos += combosOf(h);
-    el("chart-pct").textContent =
-      `${p.percent.toFixed(1)}% of hands \u00b7 ${p.hands.size} hand types \u00b7 ${combos} combos \u00b7 ${p.behind} left to act`;
-    renderGrid(el("chart-grid"), p, null);
-    el("chart-notation").textContent = p.notation.join(", ");
+
+    const inScenario = SPOTS.filter((s) => s.scenario === chartScenario);
+    const spotSeg = el("chart-spot-seg");
+    spotSeg.replaceChildren();
+    for (const s of inScenario) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = s.scenario === "rfi" ? s.hero
+        : s.scenario === "vsopen" ? `${s.hero} vs ${s.vs}`
+        : s.heroSeats.join("/");
+      b.setAttribute("aria-pressed", String(s.id === chartSpotId));
+      b.onclick = () => { chartSpotId = s.id; syncChart(); };
+      spotSeg.append(b);
+    }
+
+    const s = SPOTS.find((x) => x.id === chartSpotId);
+    el("chart-title").textContent = s.scenario === "rfi"
+      ? `Opening from ${s.heroName}`
+      : s.scenario === "vsopen"
+        ? `${s.heroName} facing a raise from ${s.vsName}`
+        : `${s.heroName} facing a limp`;
+    el("chart-pct").textContent = pctLine(s);
+    renderGrid(el("chart-grid"), s, null);
+    renderLegend(el("chart-legend"), s,
+      s.checksRest ? "everything else checks" : "suited above the diagonal, offsuit below");
+
+    const notation = el("chart-notation");
+    notation.replaceChildren();
+    for (const action of Object.keys(s.notation)) {
+      if (!s.notation[action].length) continue;
+      const line = document.createElement("div");
+      const k = document.createElement("span");
+      k.className = "kicker";
+      k.style.display = "block";
+      k.textContent = ACTION[action].label;
+      const v = document.createElement("p");
+      v.className = "mono";
+      v.style.cssText = "font-size:12.5px;color:var(--muted);margin:2px 0 0;line-height:1.7";
+      v.textContent = s.notation[action].join(", ");
+      line.append(k, v);
+      notation.append(line);
+    }
   }
 
   // ---------- tabs ----------
@@ -703,9 +871,14 @@
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (el("view-drill").hidden) return;
     const key = e.key.toLowerCase();
-    if (!done && (key === "r")) { e.preventDefault(); answer(true); }
-    else if (!done && (key === "f")) { e.preventDefault(); answer(false); }
-    else if (done && (key === " " || key === "enter")) { e.preventDefault(); newHand(); }
+    if (!answered) {
+      for (const action of spot.spot.actions) {
+        if (key === ACTION[action].key) { e.preventDefault(); answer(action); return; }
+      }
+    } else if (key === " " || key === "enter") {
+      e.preventDefault();
+      newHand();
+    }
   });
 
   newHand();
