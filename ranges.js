@@ -105,21 +105,33 @@ const BUCKETS = {
 };
 
 // ---------------------------------------------------------------------------
-// 1. Folded to you — open or fold.
+// 1. Folded to you — open, or fold.
+//
+//    Only the small blind gets a third option. It can complete for half a big
+//    blind and close the action against one player, which is a price no other
+//    seat is offered: everyone else calling here would be open-limping into a
+//    field with players still to act, and that is not part of these charts.
 // ---------------------------------------------------------------------------
 
 const RFI = {
-  UTG: ["66+", "ATs+", "KTs+", "QJs", "JTs", "AJo+"],
-  "UTG+1": ["55+", "A9s+", "KTs+", "QTs+", "JTs", "T9s", "AJo+", "KQo"],
-  "UTG+2": ["44+", "A8s+", "K9s+", "Q9s+", "J9s+", "T9s", "98s", "ATo+", "KQo"],
-  LJ: ["33+", "A7s+", "A5s", "K9s+", "Q9s+", "J9s+", "T8s+", "98s", "87s", "ATo+", "KJo+"],
-  HJ: ["22+", "A2s+", "K8s+", "Q8s+", "J8s+", "T8s+", "97s+", "87s", "ATo+", "KJo+", "QJo"],
-  CO: ["22+", "A2s+", "K5s+", "Q8s+", "J8s+", "T7s+", "96s+", "86s+", "75s+", "65s",
-       "A9o+", "KTo+", "QTo+", "JTo"],
-  BTN: ["22+", "A2s+", "K2s+", "Q4s+", "J6s+", "T6s+", "95s+", "85s+", "74s+", "64s+",
-        "53s+", "43s", "A2o+", "K8o+", "Q9o+", "J9o+", "T9o", "98o"],
-  SB: ["22+", "A2s+", "K2s+", "Q5s+", "J7s+", "T7s+", "96s+", "86s+", "75s+", "65s", "54s",
-       "A2o+", "K9o+", "Q9o+", "J9o+", "T9o"],
+  UTG: { raise: ["66+", "ATs+", "KTs+", "QJs", "JTs", "AJo+"] },
+  "UTG+1": { raise: ["55+", "A9s+", "KTs+", "QTs+", "JTs", "T9s", "AJo+", "KQo"] },
+  "UTG+2": { raise: ["44+", "A8s+", "K9s+", "Q9s+", "J9s+", "T9s", "98s", "ATo+", "KQo"] },
+  LJ: { raise: ["33+", "A7s+", "A5s", "K9s+", "Q9s+", "J9s+", "T8s+", "98s", "87s", "ATo+", "KJo+"] },
+  HJ: { raise: ["22+", "A2s+", "K8s+", "Q8s+", "J8s+", "T8s+", "97s+", "87s", "ATo+", "KJo+", "QJo"] },
+  CO: { raise: ["22+", "A2s+", "K5s+", "Q8s+", "J8s+", "T7s+", "96s+", "86s+", "75s+", "65s",
+                "A9o+", "KTo+", "QTo+", "JTo"] },
+  BTN: { raise: ["22+", "A2s+", "K2s+", "Q4s+", "J6s+", "T6s+", "95s+", "85s+", "74s+", "64s+",
+                 "53s+", "43s", "A2o+", "K8o+", "Q9o+", "J9o+", "T9o", "98o"] },
+  SB: {
+    raise: ["22+", "A2s+", "K2s+", "Q5s+", "J7s+", "T7s+", "96s+", "86s+", "75s+", "65s", "54s",
+            "A2o+", "K9o+", "Q9o+", "J9o+", "T9o"],
+    // Getting 2 to 1 with only the big blind left to act, these are playable
+    // for half a blind but not strong enough to open.
+    call: ["Q2s-Q4s", "J2s-J6s", "T5s-T6s", "94s-95s", "84s-85s", "73s-74s", "63s-64s",
+           "52s-53s", "43s", "K5o-K8o", "Q7o-Q8o", "J7o-J8o", "T8o", "98o", "87o"],
+    labels: { call: "Complete" },
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -235,6 +247,17 @@ function buildSpots() {
   const spots = [];
 
   for (const seat of Object.keys(RFI)) {
+    const entry = RFI[seat];
+    const notation = { raise: entry.raise };
+    const sets = { raise: expand(entry.raise) };
+    const actions = ["raise"];
+    if (entry.call) {
+      notation.call = entry.call;
+      sets.call = expand(entry.call);
+      actions.push("call");
+    }
+    actions.push("fold");
+
     spots.push({
       id: `rfi-${seat}`,
       scenario: "rfi",
@@ -242,9 +265,10 @@ function buildSpots() {
       heroSeats: [seat],
       heroName: SEAT_NAMES[seat],
       behind: behindCount(seat),
-      notation: { raise: RFI[seat] },
-      sets: { raise: expand(RFI[seat]) },
-      actions: ["raise", "fold"],
+      notation,
+      sets,
+      actions,
+      labels: entry.labels || null,
     });
   }
 

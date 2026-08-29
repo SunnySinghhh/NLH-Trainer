@@ -412,6 +412,10 @@
     vslimp: { label: "Limped to you", short: "Facing a limp" },
   };
 
+  /** A spot can rename an action: the small blind "completes", it does not "call". */
+  const actionLabel = (spot, action) =>
+    (spot.labels && spot.labels[action]) || ACTION[action].label;
+
   const rankOf = (c) => c >> 2;
   const suitOf = (c) => c & 3;
 
@@ -516,7 +520,7 @@
         const cell = document.createElement("div");
         cell.className = "cell c-" + action + (hand === mark ? " mark" : "");
         cell.textContent = hand;
-        cell.title = `${hand} — ${ACTION[action].label.toLowerCase()}`;
+        cell.title = `${hand} — ${actionLabel(spot, action).toLowerCase()}`;
         target.append(cell);
       }
     }
@@ -534,7 +538,7 @@
       } else {
         sw.style.background = `var(--${action === "threebet" ? "raise" : action})`;
       }
-      span.append(sw, document.createTextNode(ACTION[action].label.toLowerCase()));
+      span.append(sw, document.createTextNode(actionLabel(spot, action).toLowerCase()));
       target.append(span);
     }
     if (extra) {
@@ -548,7 +552,7 @@
   function pctLine(spot) {
     return spot.actions
       .filter((a) => spot.pct[a] !== undefined)
-      .map((a) => `${ACTION[a].label.toLowerCase()} ${spot.pct[a].toFixed(1)}%`)
+      .map((a) => `${actionLabel(spot, a).toLowerCase()} ${spot.pct[a].toFixed(1)}%`)
       .join(" · ");
   }
 
@@ -613,7 +617,7 @@
   }
 
   function questionFor(spot) {
-    return spot.actions.map((a) => ACTION[a].label).join(", ").replace(/, ([^,]*)$/, " or $1") + "?";
+    return spot.actions.map((a) => actionLabel(spot, a)).join(", ").replace(/, ([^,]*)$/, " or $1") + "?";
   }
 
   function newHand() {
@@ -641,7 +645,7 @@
       const b = document.createElement("button");
       b.type = "button";
       b.className = "act a-" + action;
-      b.textContent = ACTION[action].label;
+      b.textContent = actionLabel(spot.spot, action);
       b.onclick = () => answer(action);
       acts.append(b);
     }
@@ -683,11 +687,11 @@
     box.className = "verdict " + (right ? "ok" : "no");
     const head = document.createElement("div");
     head.className = "head";
-    head.textContent = right ? "Correct" : `${ACTION[correctAction].label} is the play`;
+    head.textContent = right ? "Correct" : `${actionLabel(spot.spot, correctAction)} is the play`;
     const body = document.createElement("p");
     body.className = "body";
-    body.innerHTML = `<b>${spot.hand}</b> is a <b>${ACTION[correctAction].label.toLowerCase()}</b> here`
-      + (right ? "" : `, not a ${ACTION[chosen].label.toLowerCase()}`)
+    body.innerHTML = `<b>${spot.hand}</b> is a <b>${actionLabel(spot.spot, correctAction).toLowerCase()}</b> here`
+      + (right ? "" : `, not a ${actionLabel(spot.spot, chosen).toLowerCase()}`)
       + `. ${pctLine(spot.spot)}.`;
     box.append(head, body);
 
@@ -843,7 +847,7 @@
       const k = document.createElement("span");
       k.className = "kicker";
       k.style.display = "block";
-      k.textContent = ACTION[action].label;
+      k.textContent = actionLabel(s, action);
       const v = document.createElement("p");
       v.className = "mono";
       v.style.cssText = "font-size:12.5px;color:var(--muted);margin:2px 0 0;line-height:1.7";

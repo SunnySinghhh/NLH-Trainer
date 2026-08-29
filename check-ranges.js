@@ -120,7 +120,24 @@ for (let i = 1; i < LIMP_ORDER.length; i++) {
   }
 }
 
-console.log("10. trash never opens from a seat that is not the button or a blind");
+console.log("10. only the small blind can complete when the action folds to it");
+for (const s of SPOTS.filter((x) => x.scenario === "rfi")) {
+  const hasCall = s.actions.includes("call");
+  if (s.hero === "SB" && !hasCall) fail("the small blind cannot complete");
+  if (s.hero !== "SB" && hasCall) fail(`${s.hero} is offered an open-limp`);
+}
+
+console.log("11. the small blind completes hands it is not already opening");
+const sbOpen = spot("rfi-SB");
+if (sbOpen.sets.call) {
+  const total = pct(sbOpen, "raise") + pct(sbOpen, "call");
+  if (total > 70) fail(`the small blind plays ${total.toFixed(1)}% of hands, which is too many`);
+  if (pct(sbOpen, "call") >= pct(sbOpen, "raise")) {
+    fail(`the small blind completes ${pct(sbOpen, "call").toFixed(1)}% but only raises ${pct(sbOpen, "raise").toFixed(1)}%`);
+  }
+}
+
+console.log("12. trash never opens from a seat that is not the button or a blind");
 for (const s of SPOTS.filter((x) => x.scenario === "rfi")) {
   if (s.hero === "BTN" || s.hero === "SB") continue;
   for (const hand of ["72o", "83o", "94o", "32o", "T2o"]) {
@@ -133,9 +150,15 @@ for (const s of SPOTS.filter((x) => x.scenario === "rfi")) {
 const NAMES = { raise: "raise", threebet: "3-bet", call: "call", check: "check" };
 
 console.log("\n--- opening ranges (folded to you) ---");
-console.log("seat       open%   hands");
+console.log("seat       open%   complete%   played%");
 for (const s of SPOTS.filter((x) => x.scenario === "rfi")) {
-  console.log(s.hero.padEnd(10), pct(s, "raise").toFixed(1).padStart(6), String(s.sets.raise.size).padStart(7));
+  const complete = s.sets.call ? pct(s, "call").toFixed(1) : "-";
+  console.log(
+    s.hero.padEnd(10),
+    pct(s, "raise").toFixed(1).padStart(6),
+    String(complete).padStart(11),
+    played(s).toFixed(1).padStart(9),
+  );
 }
 
 console.log("\n--- facing a raise ---");

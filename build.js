@@ -40,6 +40,7 @@ const payload = {
       vs: s.vs || null,
       vsName: s.vsName || null,
       actions: s.actions,
+      labels: s.labels || null,
       checksRest: Boolean(s.checksRest),
       assign,
       pct,

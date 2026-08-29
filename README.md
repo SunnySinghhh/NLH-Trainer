@@ -7,7 +7,7 @@ Three scenarios, 32 spots:
 
 | Scenario | Your actions |
 |---|---|
-| It folds to you | Raise / Fold |
+| It folds to you | Raise / Fold — plus **Complete** in the small blind |
 | Someone raises ahead of you | 3-Bet / Call / Fold |
 | Someone limps ahead of you | Raise / Call / Fold — or Raise / **Check** in the big blind |
 
@@ -42,9 +42,15 @@ from memory.
 
 ### Opening ranges (folded to you)
 
-| UTG | UTG+1 | UTG+2 | LJ | HJ | CO | BTN | SB |
-|---|---|---|---|---|---|---|---|
-| 9.5% | 11.8% | 14.6% | 17.2% | 21.0% | 27.3% | 44.2% | 39.7% |
+| | UTG | UTG+1 | UTG+2 | LJ | HJ | CO | BTN | SB |
+|---|---|---|---|---|---|---|---|---|
+| open | 9.5% | 11.8% | 14.6% | 17.2% | 21.0% | 27.3% | 44.2% | 39.7% |
+| complete | — | — | — | — | — | — | — | 16.3% |
+
+Only the small blind gets a completing range. It is the one seat offered a
+half-blind price to close the action against a single opponent. Everyone else
+calling here would be open-limping into a field with players still to act,
+which is not part of these charts.
 
 ### Total defence facing a raise
 
@@ -69,7 +75,10 @@ that contradicts itself or contradicts position:
 7. The big blind defends wider than the small blind against the same raise
 8. The big blind never folds to a limp
 9. Isolation ranges widen from early position to the button
-10. Trash never opens from a seat that is not the button or a blind
+10. Only the small blind can complete when the action folds to it
+11. The small blind completes hands it is not already opening, and does not end
+    up playing an absurd share of them
+12. Trash never opens from a seat that is not the button or a blind
 
 Two real errors these caught during the build: `KJo` assigned to both the
 3-bet and the call range for BB vs SB, and the small blind defending only
