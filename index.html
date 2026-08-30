@@ -770,9 +770,14 @@
     answered = false;
 
     renderSeats(hand);
+    // "The action to you is it folds to you" does not read, so RFI gets its
+    // own sentence rather than being forced through the same template.
+    const where = `You're <b>${SEAT_PHRASE[hand.spot.seat]}</b>`;
     el("story").innerHTML =
-      `You're <b>${SEAT_PHRASE[hand.spot.seat]}</b>. The action to you is `
-      + `<b>${hand.spot.facingFull}</b>. Raise, call, fold or check?`;
+      (hand.spot.facing === "rfi"
+        ? `${where} and <b>it folds to you</b>.`
+        : `${where}. The action to you is <b>${hand.spot.facingFull}</b>.`)
+      + " Raise, call, fold or check?";
     el("cards").replaceChildren(cardEl(hand.cards[0]), cardEl(hand.cards[1]));
     el("hand").textContent = hand.hand;
     el("hand-sub").textContent =
