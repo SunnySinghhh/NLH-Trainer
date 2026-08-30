@@ -149,9 +149,9 @@ const RANGES = {
     rfi: {
       raise: ["77+", "ATs+", "KTs+", "QTs+", "JTs", "T9s", "98s", "AJo+", "KQo"],
       mix: {
-        "A9s": { raise: 20 },
+        "A9s": { raise: 50 },
         "A2s-A5s": { raise: 20 },
-        "ATo": { raise: 40 },
+        "ATo": { raise: 50 },
         "KJo": { raise: 50 },
       },
     },
@@ -161,15 +161,16 @@ const RANGES = {
       call: ["99", "AQo", "KQo", "T9s", "98s"],
       mix: {
         "AKo": { raise: 85, call: 15 },
-        "AQs": { raise: 60, call: 40 },
-        "KQs": { raise: 40, call: 60 },
+        "AQs": { raise: 50, call: 50 },
+        "KQs": { raise: 20, call: 80 },
         "JJ": { raise: 55, call: 45 },
         "TT": { raise: 50, call: 50 },
-        "88": { raise: 30, call: 70 },
-        "77": { raise: 55 },
-        "AJs": { call: 70 },
-        "KJs": { call: 25 },
-        "QJs": { call: 20 },
+        // The only hand here played three ways: the rest of each entry folds.
+        "88": { raise: 10, call: 50 },
+        "77": { raise: 10 },
+        "AJs": { call: 50 },
+        "KJs": { call: 50 },
+        "QJs": { call: 50 },
       },
     },
 
