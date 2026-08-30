@@ -188,7 +188,8 @@
     border: 1px solid var(--line-strong); background: var(--surface); color: var(--muted);
   }
   button.roll-again:hover { color: var(--text); }
-  .roll-note { grid-column: 1 / -1; margin: 4px 0 0; font-size: 11px; color: var(--faint); max-width: 30ch; line-height: 1.5; }
+  .roll-note { grid-column: 1 / -1; margin: 6px 0 0; font-size: 11px; color: var(--faint); max-width: 42ch; line-height: 1.55; }
+  .roll-note b { color: var(--muted); font-weight: 600; }
   @media (max-width: 560px) { .roll { margin-left: 0; } }
   .cards { display: flex; gap: 8px; }
   .pcard {
@@ -342,8 +343,12 @@
             <span class="roll-value" id="roll-value">-</span>
             <button class="roll-again" type="button" id="reroll">Roll again</button>
             <p class="roll-note">
-              Rolled for every hand. It only matters on a hand played more than
-              one way &mdash; then it picks which way, this time.
+              <b>Used for frequencies.</b> Some hands are played more than one
+              way, and the roll picks which way this time. The actions run
+              <b>low to high: fold, then call, then raise</b> &mdash; so a hand
+              that calls 50% and raises 50% calls on 1-50 and raises on 51-100.
+              Rolled on every hand, so it never gives away which hands are
+              mixed; on a hand played only one way, ignore it.
             </p>
           </div>
         </div>
