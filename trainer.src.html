@@ -158,8 +158,10 @@
   .seat.behind { color: var(--muted); border-color: var(--line); background: transparent; }
 
   .drill { padding: 22px; display: flex; flex-direction: column; gap: 17px; }
-  .story { font-size: 13.5px; color: var(--muted); }
-  .story b { color: var(--text); font-weight: 600; }
+  .spot-label {
+    margin: 0; font-family: "JetBrains Mono", monospace; font-weight: 600;
+    font-size: 19px; letter-spacing: .04em; color: var(--text);
+  }
 
   .hand-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
   .roll {
@@ -332,7 +334,7 @@
       <div class="panel drill">
         <div style="display:flex;flex-direction:column;gap:9px">
           <div class="seats" id="seats"></div>
-          <p class="story" id="story" style="margin:0"></p>
+          <p class="spot-label" id="story"></p>
         </div>
 
         <div class="hand-row">
@@ -493,18 +495,6 @@
   const SUITS = ["♣", "♦", "♥", "♠"];
   const RED = [false, true, true, false];
 
-  // "You're ..." reads naturally for every seat only if the preposition varies.
-  const SEAT_PHRASE = {
-    UTG: "under the gun",
-    MP: "in middle position",
-    LJ: "in the lojack",
-    HJ: "in the hijack",
-    CO: "in the cutoff",
-    BTN: "on the button",
-    SB: "in the small blind",
-    BB: "in the big blind",
-  };
-
   /**
    * Every spot offers all four, in this order, whether or not the action is
    * legal. Checking into a 4-bet is not a thing you can do; it is on the board
@@ -583,8 +573,7 @@
       .join(" · ");
   }
 
-  const spotShort = (s) => `${s.seat} · ${s.facingLabel}`;
-  const spotTitle = (s) => `${s.seat}, facing ${s.facingFull}`;
+  const spotLabel = (s) => `${s.seat} / ${s.facingLabel}`;
 
   // ---------- theme ----------
   const root = document.documentElement;
@@ -770,21 +759,14 @@
     answered = false;
 
     renderSeats(hand);
-    // "The action to you is it folds to you" does not read, so RFI gets its
-    // own sentence rather than being forced through the same template.
-    const where = `You're <b>${SEAT_PHRASE[hand.spot.seat]}</b>`;
-    el("story").innerHTML =
-      (hand.spot.facing === "rfi"
-        ? `${where} and <b>it folds to you</b>.`
-        : `${where}. The action to you is <b>${hand.spot.facingFull}</b>.`)
-      + " Raise, call, fold or check?";
+    el("story").textContent = spotLabel(hand.spot);
     el("cards").replaceChildren(cardEl(hand.cards[0]), cardEl(hand.cards[1]));
     el("hand").textContent = hand.hand;
     el("hand-sub").textContent =
       hand.hand.length === 2 ? "pocket pair" : hand.hand[2] === "s" ? "suited" : "offsuit";
     renderRoll(hand);
 
-    el("grid-title").textContent = spotTitle(hand.spot);
+    el("grid-title").textContent = spotLabel(hand.spot);
     el("grid-pct").textContent = pctLine(hand.spot);
     redrawDrillGrid();
     syncChartVisibility();
@@ -910,7 +892,7 @@
       const t = tally.get("spot:" + s.id);
       if (!t || t.n < 3) continue;
       const rate = (100 * t.right) / t.n;
-      if (rate < 100) weak.push({ name: spotShort(s), rate, n: t.n });
+      if (rate < 100) weak.push({ name: spotLabel(s), rate, n: t.n });
     }
     weak.sort((a, b) => a.rate - b.rate);
     el("weak-wrap").hidden = weak.length === 0;
@@ -976,14 +958,14 @@
     for (const s of SPOTS) {
       const b = document.createElement("button");
       b.type = "button";
-      b.textContent = spotShort(s);
+      b.textContent = spotLabel(s);
       b.setAttribute("aria-pressed", String(s.id === chartSpotId));
       b.onclick = () => { chartSpotId = s.id; syncChart(); };
       seg.append(b);
     }
 
     const s = SPOTS.find((x) => x.id === chartSpotId);
-    el("chart-title").textContent = spotTitle(s);
+    el("chart-title").textContent = spotLabel(s);
     el("chart-pct").textContent = pctLine(s);
     renderGrid(el("chart-grid"), s, null);
     renderLegend(el("chart-legend"), s, "suited above the diagonal, offsuit below");
