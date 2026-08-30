@@ -99,16 +99,19 @@ console.log("7. the big blind has no RFI range");
 // It can never be folded to preflop - there is nobody left to act behind it.
 if (spot("BB", "rfi")) fail("BB has an RFI range, which cannot happen");
 
-console.log("8. a seat that never limps can never be facing an open");
-for (const seat of TESTED_SEATS) {
-  const rfi = spot(seat, "rfi");
-  const open = spot(seat, "open");
-  if (!rfi || seat === "BB") continue;
-  const limps = (rfi.pct.call || 0) > 0;
-  if (!limps && open) {
-    fail(`${seat} is raise-or-fold when folded to, so it cannot face an open, but has an open range`);
+console.log("8. the first seat to act cannot face an open unless it limps");
+// This applies to the FIRST seat only. Everyone behind it faces an open the
+// ordinary way - someone ahead of them raised - with no limp needed. Getting
+// this wrong would have called every later seat's facing-an-open range
+// impossible.
+{
+  const first = SEATS[0];
+  const rfi = spot(first, "rfi");
+  const open = spot(first, "open");
+  if (!rfi) skip(`${first} has no RFI range to judge this against`);
+  else if (!(rfi.pct.call > 0) && open) {
+    fail(`${first} acts first and is raise-or-fold when folded to, so it cannot face an open, but has an open range`);
   }
-  if (limps && !open) skip(`${seat} limps but has no facing-an-open range yet`);
 }
 
 console.log("9. opening ranges widen from under the gun to the button");
@@ -193,7 +196,8 @@ if (mixed.length) {
 // folded to can never end up facing an open.
 function impossible(seat, facing) {
   if (seat === "BB" && facing === "rfi") return true;
-  if (facing !== "open") return false;
+  // Only the first seat to act needs to have limped to end up facing an open.
+  if (facing !== "open" || seat !== SEATS[0]) return false;
   const rfi = spot(seat, "rfi");
   return Boolean(rfi) && !(rfi.pct.call > 0);
 }
