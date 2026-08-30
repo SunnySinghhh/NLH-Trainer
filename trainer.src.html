@@ -154,6 +154,7 @@
   }
   .seat.hero { background: var(--raise); color: var(--raise-ink); font-weight: 700; }
   .seat.villain { background: var(--surface); color: var(--text); border-color: var(--text); font-weight: 600; }
+  .seat.caller { background: var(--surface); color: var(--muted); border-color: var(--line-strong); border-style: dashed; }
   .seat.behind { color: var(--muted); border-color: var(--line); background: transparent; }
 
   .drill { padding: 22px; display: flex; flex-direction: column; gap: 17px; }
@@ -182,7 +183,8 @@
     padding: 11px 22px; border-radius: 9px; cursor: pointer;
     border: 1px solid var(--line-strong); background: var(--surface-2); color: var(--text);
   }
-  button.act.a-raise, button.act.a-threebet { background: var(--raise); border-color: var(--raise); color: var(--raise-ink); }
+  button.act.a-raise, button.act.a-threebet, button.act.a-fourbet,
+  button.act.a-fivebet, button.act.a-squeeze { background: var(--raise); border-color: var(--raise); color: var(--raise-ink); }
   button.act.a-call { background: var(--call); border-color: var(--call); color: var(--call-ink); }
   button.act.a-check { background: var(--check); border-color: var(--check); color: var(--check-ink); }
   button.act.next { background: var(--ink); border-color: var(--ink); color: var(--ink-text); }
@@ -253,9 +255,9 @@
       <span class="kicker">9-max full ring &middot; 100bb</span>
       <h1>Preflop Range Trainer</h1>
       <p class="sub">
-        Three spots: it folds to you, someone raises ahead of you, or someone
-        limps. Open, 3-bet, call, check, or fold &mdash; then see where your hand
-        actually sat in the range.
+        Six spots across the whole preflop tree: it folds to you, someone raises,
+        you get 3-bet, you get 4-bet, someone squeezes behind an open, or the pot
+        is limped. Then see exactly where your hand sat in the range.
       </p>
     </div>
     <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
@@ -360,15 +362,33 @@
     </div>
   </section>
 
-  <p class="note">
-    A consensus teaching baseline for 9-max cash at 100bb &mdash; not solver output,
-    and not claimed to be optimal. The opponent's seat is bucketed into early,
-    middle, cutoff, button and small blind, which is how these charts are
-    normally taught; a real solver would treat every exact pairing separately.
-    Checked for coherence: ranges widen with position, no hand is given two
-    actions, defence widens against later raises, and the big blind never folds
-    to a limp.
-  </p>
+  <section class="panel provenance">
+    <span class="kicker">Where these ranges come from</span>
+    <p>
+      Hand-written as a <b>consensus teaching baseline</b>, not copied from any
+      single published chart and <b>not solver output</b>. Nothing here is claimed
+      to be optimal. Where sources disagree &mdash; and they disagree most on
+      squeezes and multiway limped pots &mdash; a middle position was taken.
+    </p>
+    <p>
+      <b>Assumptions baked in:</b> 9-max full ring, 100bb effective, a standard
+      <b>~2.5bb open</b>, and no ante or straddle. Facing much larger opens you
+      should defend tighter than this; facing min-raises, wider.
+      The opponent's seat is bucketed &mdash; early, middle, cutoff, button,
+      blinds &mdash; which is how charts are taught; a solver would treat every
+      exact pairing separately.
+    </p>
+    <p>
+      <b>What is actually verified:</b> 17 structural checks run over all
+      <span id="spot-count">62</span> spots on every build. No hand is ever given
+      two actions; ranges widen with position; defence widens against later
+      raises; the big blind defends wider than the small blind and never folds to
+      a limp; 4-bets are far tighter than the opens that invite them; squeezes
+      are tighter than 3-betting the same opener heads-up; and more limpers
+      means a tighter isolate but a wider overlimp. These catch a chart that
+      contradicts itself &mdash; they cannot tell you it is the best strategy.
+    </p>
+  </section>
 </div>
 
 <script>
@@ -402,15 +422,35 @@
     raise:    { label: "Raise",  key: "r", verb: "raising" },
     threebet: { label: "3-Bet",  key: "t", verb: "3-betting" },
     call:     { label: "Call",   key: "c", verb: "calling" },
+    fourbet:  { label: "4-Bet",  key: "b", verb: "4-betting" },
+    fivebet:  { label: "Shove",  key: "v", verb: "shoving" },
+    squeeze:  { label: "Squeeze", key: "q", verb: "squeezing" },
     check:    { label: "Check",  key: "x", verb: "checking" },
     fold:     { label: "Fold",   key: "f", verb: "folding" },
   };
 
   const SCENARIOS = {
-    rfi:    { label: "Folded to you", short: "Folded to you" },
-    vsopen: { label: "Opened to you", short: "Facing a raise" },
-    vslimp: { label: "Limped to you", short: "Facing a limp" },
+    rfi:     { label: "Folded to you", short: "Folded to you" },
+    vsopen:  { label: "Opened to you", short: "Facing a raise" },
+    vs3bet:  { label: "You open, 3-bet", short: "Facing a 3-bet" },
+    vs4bet:  { label: "You 3-bet, 4-bet", short: "Facing a 4-bet" },
+    squeeze: { label: "Open + caller", short: "Squeeze" },
+    vslimp:  { label: "Limped to you", short: "Facing a limp" },
   };
+
+  /** Seats a squeeze opener can occupy, and seats a 4-bettor can have opened from. */
+  const SQUEEZE_SEATS = {
+    EP: ["UTG", "UTG+1", "UTG+2"],
+    MP: ["LJ", "HJ"],
+    LATE: ["CO", "BTN"],
+  };
+  const FOURBET_SEATS = {
+    "IP-EARLY": ["UTG", "UTG+1", "UTG+2", "LJ", "HJ"],
+    "BLIND-EARLY": ["UTG", "UTG+1", "UTG+2", "LJ", "HJ"],
+    "IP-LATE": ["CO"],
+    "BLIND-LATE": ["CO", "BTN"],
+  };
+  const NON_BLIND = ["UTG", "UTG+1", "UTG+2", "LJ", "HJ", "CO", "BTN"];
 
   /** A spot can rename an action: the small blind "completes", it does not "call". */
   const actionLabel = (spot, action) =>
@@ -568,21 +608,47 @@
     const chosen = pick(pool);
     const heroSeat = pick(chosen.heroSeats);
 
-    let villainSeat = null;
+    const before = (seat) => SEATS.filter((x) => SEATS.indexOf(x) < SEATS.indexOf(seat));
+    const after = (seat) => SEATS.filter((x) => SEATS.indexOf(x) > SEATS.indexOf(seat));
+
+    let villainSeat = null;   // whoever made the last aggressive action
+    let callerSeat = null;    // the cold-caller in a squeeze
+    let limperSeats = [];
+
     if (chosen.scenario === "vsopen") {
-      const candidates = BUCKETS[chosen.vs].seats.filter(
-        (s) => SEATS.indexOf(s) < SEATS.indexOf(heroSeat),
-      );
+      const candidates = BUCKETS[chosen.vs].seats.filter((x) => SEATS.indexOf(x) < SEATS.indexOf(heroSeat));
       villainSeat = candidates.length ? pick(candidates) : BUCKETS[chosen.vs].seats[0];
     } else if (chosen.scenario === "vslimp") {
-      const candidates = SEATS.filter((s) => SEATS.indexOf(s) < SEATS.indexOf(heroSeat));
-      villainSeat = candidates.length ? pick(candidates) : null;
+      const pool = before(heroSeat);
+      const wanted = chosen.limpers === "many" ? 2 : 1;
+      limperSeats = pool.slice(-Math.min(wanted, pool.length));
+      villainSeat = limperSeats[0] || null;
+    } else if (chosen.scenario === "vs3bet") {
+      // You opened; the 3-bet came from behind you.
+      if (chosen.vs === "SB" || chosen.vs === "BB") villainSeat = chosen.vs;
+      else {
+        const candidates = after(heroSeat).filter((x) => NON_BLIND.includes(x));
+        villainSeat = candidates.length ? pick(candidates) : "BTN";
+      }
+    } else if (chosen.scenario === "vs4bet") {
+      // You 3-bet; the original raiser came over the top.
+      const candidates = (FOURBET_SEATS[chosen.hero] || NON_BLIND)
+        .filter((x) => SEATS.indexOf(x) < SEATS.indexOf(heroSeat));
+      villainSeat = candidates.length ? pick(candidates) : "CO";
+    } else if (chosen.scenario === "squeeze") {
+      const openers = (SQUEEZE_SEATS[chosen.vs] || [])
+        .filter((x) => SEATS.indexOf(x) < SEATS.indexOf(heroSeat));
+      villainSeat = openers.length ? pick(openers) : SQUEEZE_SEATS[chosen.vs][0];
+      const callers = SEATS.filter(
+        (x) => SEATS.indexOf(x) > SEATS.indexOf(villainSeat) && SEATS.indexOf(x) < SEATS.indexOf(heroSeat),
+      );
+      callerSeat = callers.length ? pick(callers) : null;
     }
 
     const a = Math.floor(Math.random() * 52);
     let b = Math.floor(Math.random() * 51);
     if (b >= a) b += 1;
-    return { spot: chosen, heroSeat, villainSeat, cards: [a, b], hand: handOf(a, b) };
+    return { spot: chosen, heroSeat, villainSeat, callerSeat, limperSeats, cards: [a, b], hand: handOf(a, b) };
   }
 
   function renderSeats(state) {
@@ -594,6 +660,8 @@
       let cls = "seat";
       if (name === state.heroSeat) cls += " hero";
       else if (name === state.villainSeat) cls += " villain";
+      else if (name === state.callerSeat) cls += " caller";
+      else if ((state.limperSeats || []).includes(name)) cls += " caller";
       else if (i > heroIndex) cls += " behind";
       s.className = cls;
       s.textContent = name;
@@ -613,7 +681,24 @@
       return `You're <b>${phrase}</b>. <b>${state.villainSeat}</b> raises `
         + `(${state.spot.vsName}), and there ${isAre} ${behindText}.`;
     }
-    return `You're <b>${phrase}</b>. <b>${state.villainSeat}</b> limps, with ${behindText}.`;
+    if (state.spot.scenario === "vs3bet") {
+      return `You open from <b>${state.heroSeat}</b> and <b>${state.villainSeat}</b> `
+        + `3-bets (${state.spot.vsName}).`;
+    }
+    if (state.spot.scenario === "vs4bet") {
+      return `<b>${state.villainSeat}</b> opens, you 3-bet <b>${phrase}</b>, `
+        + `and they 4-bet.`;
+    }
+    if (state.spot.scenario === "squeeze") {
+      const caller = state.callerSeat ? `<b>${state.callerSeat}</b> calls` : "another player calls";
+      return `<b>${state.villainSeat}</b> raises from ${state.spot.vsName} and ${caller}. `
+        + `You're <b>${phrase}</b>, with ${behindText}.`;
+    }
+    const many = (state.limperSeats || []).length > 1;
+    const who = many
+      ? `<b>${state.limperSeats.join("</b> and <b>")}</b> limp`
+      : `<b>${state.villainSeat}</b> limps`;
+    return `You're <b>${phrase}</b>. ${who}, with ${behindText}.`;
   }
 
   function questionFor(spot) {
@@ -726,10 +811,31 @@
     return row;
   }
 
+  function spotShort(s) {
+    if (s.scenario === "rfi") return s.hero;
+    if (s.scenario === "vsopen") return `${s.hero} vs ${s.vs}`;
+    if (s.scenario === "vs3bet") return `${s.hero} vs ${s.vs} 3bet`;
+    if (s.scenario === "vs4bet") return s.hero.replace("-", " vs ").toLowerCase();
+    if (s.scenario === "squeeze") return `${s.hero} vs ${s.vs}`;
+    return `${s.heroSeats.join("/")} ${s.limpers === "many" ? "2+" : "1"}`;
+  }
+
   function spotName(s) {
     if (s.scenario === "rfi") return `Open from ${s.hero}`;
     if (s.scenario === "vsopen") return `${s.hero} vs ${s.vs}`;
-    return `${s.heroSeats.join("/")} vs limp`;
+    if (s.scenario === "vs3bet") return `${s.hero} open, ${s.vs} 3-bets`;
+    if (s.scenario === "vs4bet") return `4-bet at you, ${s.hero.toLowerCase()}`;
+    if (s.scenario === "squeeze") return `Squeeze ${s.hero} vs ${s.vs}`;
+    return `${s.heroSeats.join("/")} vs ${s.limpers === "many" ? "2+ limpers" : "one limper"}`;
+  }
+
+  function spotTitle(s) {
+    if (s.scenario === "rfi") return `Opening from ${s.heroName}`;
+    if (s.scenario === "vsopen") return `${s.heroName} facing a raise from ${s.vsName}`;
+    if (s.scenario === "vs3bet") return `You opened from ${s.heroName}, 3-bet by ${s.vsName}`;
+    if (s.scenario === "vs4bet") return `You 3-bet ${s.heroName} and were 4-bet by ${s.vsName}`;
+    if (s.scenario === "squeeze") return `Squeezing ${s.heroName} against an open from ${s.vsName}`;
+    return `${s.heroName} facing ${s.limpers === "many" ? "two or more limpers" : "one limper"}`;
   }
 
   function renderStats() {
@@ -820,20 +926,14 @@
     for (const s of inScenario) {
       const b = document.createElement("button");
       b.type = "button";
-      b.textContent = s.scenario === "rfi" ? s.hero
-        : s.scenario === "vsopen" ? `${s.hero} vs ${s.vs}`
-        : s.heroSeats.join("/");
+      b.textContent = spotShort(s);
       b.setAttribute("aria-pressed", String(s.id === chartSpotId));
       b.onclick = () => { chartSpotId = s.id; syncChart(); };
       spotSeg.append(b);
     }
 
     const s = SPOTS.find((x) => x.id === chartSpotId);
-    el("chart-title").textContent = s.scenario === "rfi"
-      ? `Opening from ${s.heroName}`
-      : s.scenario === "vsopen"
-        ? `${s.heroName} facing a raise from ${s.vsName}`
-        : `${s.heroName} facing a limp`;
+    el("chart-title").textContent = spotTitle(s);
     el("chart-pct").textContent = pctLine(s);
     renderGrid(el("chart-grid"), s, null);
     renderLegend(el("chart-legend"), s,

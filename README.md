@@ -5,9 +5,16 @@ step to run it, no dependencies to install.
 
 Three scenarios, 32 spots:
 
-| Scenario | Your actions |
-|---|---|
-| It folds to you | Raise / Fold — plus **Complete** in the small blind |
+| Scenario | Your actions | Spots |
+|---|---|---|
+| It folds to you | Raise / Fold — plus **Complete** in the small blind | 8 |
+| Opened to you | 3-Bet / Call / Fold | 19 |
+| You opened, they 3-bet | 4-Bet / Call / Fold | 12 |
+| You 3-bet, they 4-bet | Shove / Call / Fold | 4 |
+| Open plus a caller | Squeeze / Call / Fold | 9 |
+| Limped to you (1 or 2+) | Isolate / Overlimp / Fold — **Check** in the big blind | 10 |
+
+**62 spots in total.**
 | Someone raises ahead of you | 3-Bet / Call / Fold |
 | Someone limps ahead of you | Raise / Call / Fold — or Raise / **Check** in the big blind |
 
