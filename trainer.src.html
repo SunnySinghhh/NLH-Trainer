@@ -286,6 +286,16 @@
   .empty .steps { margin: 6px 0 0; text-align: left; display: flex; flex-direction: column; gap: 7px; }
   .empty .steps li { font-size: 13px; color: var(--muted); line-height: 1.6; }
   .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  select {
+    appearance: none; font: inherit; font-size: 13px; font-weight: 500;
+    padding: 8px 32px 8px 12px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line-strong); background-color: var(--surface-2); color: var(--text);
+    background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238A8F98' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 9l7 7 7-7'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 11px center;
+  }
+  select:hover { border-color: var(--text); }
+  select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   [hidden] { display: none !important; }
 
   @media (prefers-reduced-motion: no-preference) {
@@ -422,8 +432,14 @@
 
     <div class="panel grid-panel" id="charts-panel">
       <div class="filters">
-        <span class="kicker">Spot</span>
-        <span class="seg" id="chart-spot-seg"></span>
+        <label class="field">
+          <span class="kicker">Position</span>
+          <select id="chart-seat"></select>
+        </label>
+        <label class="field">
+          <span class="kicker">Action to you</span>
+          <select id="chart-facing"></select>
+        </label>
       </div>
       <div class="grid-head">
         <span class="kicker" id="chart-title"></span>
@@ -971,22 +987,37 @@
   };
 
   // ---------- charts ----------
-  let chartSpotId = SPOTS.length ? SPOTS[0].id : null;
+  const chartSeat = el("chart-seat");
+  const chartFacing = el("chart-facing");
+  let chartSeatKey = SPOTS.length ? SPOTS[0].seat : null;
+  let chartFacingKey = SPOTS.length ? SPOTS[0].facing : null;
+
+  /** The actions this seat can actually be facing, in escalation order. */
+  const facingAt = (seat) =>
+    FACING_KEYS.filter((f) => SPOTS.some((s) => s.seat === seat && s.facing === f));
+
+  function fillSelect(select, values, labelOf, chosen) {
+    select.replaceChildren();
+    for (const value of values) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = labelOf(value);
+      option.selected = value === chosen;
+      select.append(option);
+    }
+  }
 
   function syncChart() {
-    if (!chartSpotId) return;
-    const seg = el("chart-spot-seg");
-    seg.replaceChildren();
-    for (const s of SPOTS) {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.textContent = spotLabel(s);
-      b.setAttribute("aria-pressed", String(s.id === chartSpotId));
-      b.onclick = () => { chartSpotId = s.id; syncChart(); };
-      seg.append(b);
-    }
+    if (!chartSeatKey) return;
+    // Not every seat has every action - UTG can never be facing an open - so
+    // the second dropdown is rebuilt from the first rather than offering
+    // combinations that do not exist.
+    const available = facingAt(chartSeatKey);
+    if (!available.includes(chartFacingKey)) chartFacingKey = available[0];
+    fillSelect(chartSeat, SEAT_KEYS, (k) => k, chartSeatKey);
+    fillSelect(chartFacing, available, (k) => FACING[k].label, chartFacingKey);
 
-    const s = SPOTS.find((x) => x.id === chartSpotId);
+    const s = SPOTS.find((x) => x.seat === chartSeatKey && x.facing === chartFacingKey);
     el("chart-title").textContent = spotLabel(s);
     el("chart-pct").textContent = pctLine(s);
     renderGrid(el("chart-grid"), s, null);
@@ -1014,6 +1045,9 @@
     const mixHands = Object.keys(s.bands).filter((h) => s.bands[h].length > 1);
     line("By frequency", mixHands.map((h) => `${h} ${mixText(s, h)}`).join("  ·  "));
   }
+
+  chartSeat.onchange = () => { chartSeatKey = chartSeat.value; syncChart(); };
+  chartFacing.onchange = () => { chartFacingKey = chartFacing.value; syncChart(); };
 
   // ---------- tabs ----------
   const TABS = [["tab-drill", "view-drill"], ["tab-charts", "view-charts"]];
