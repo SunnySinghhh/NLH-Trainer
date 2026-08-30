@@ -1,4 +1,4 @@
-# Preflop Range Trainer
+# Preflop NLH Range Trainer
 
 An 8-handed preflop trainer. One self-contained HTML page - no build step to
 run it, no dependencies to install, nothing to serve it from.
