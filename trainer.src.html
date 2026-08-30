@@ -115,7 +115,15 @@
 
   .wrap { max-width: 1180px; margin: 0 auto; padding: 26px 20px 80px; display: flex; flex-direction: column; gap: 18px; }
 
-  .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; }
+  button.theme-toggle {
+    appearance: none; cursor: pointer; padding: 0; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; border-radius: 9px;
+    border: 1px solid var(--line-strong); background: var(--surface-2); color: var(--muted);
+  }
+  button.theme-toggle:hover { color: var(--text); }
+  button.theme-toggle:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   h1 { margin: 0; font-size: 25px; font-weight: 700; letter-spacing: -.022em; text-wrap: balance; }
   .kicker { font-family: "JetBrains Mono", monospace; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--faint); }
 
@@ -291,14 +299,7 @@
     <div>
       <h1>Preflop NLH Range Trainer</h1>
     </div>
-    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-      <span class="kicker">Theme</span>
-      <span class="seg" id="theme-seg">
-        <button type="button" data-theme-choice="light" aria-pressed="false">Day</button>
-        <button type="button" data-theme-choice="auto" aria-pressed="true">Auto</button>
-        <button type="button" data-theme-choice="dark" aria-pressed="false">Night</button>
-      </span>
-    </div>
+    <button class="theme-toggle" type="button" id="theme-toggle"></button>
   </div>
 
   <div class="tabs" role="tablist">
@@ -356,8 +357,8 @@
           <span class="mono" id="grid-pct" style="font-size:12px;color:var(--muted)"></span>
         </div>
         <div id="chart-body">
+          <div class="legend" id="drill-legend" style="margin-bottom:13px"></div>
           <div class="grid-scroll"><div class="grid" id="drill-grid"></div></div>
-          <div class="legend" id="drill-legend" style="margin-top:13px"></div>
         </div>
         <p class="hidden-chart" id="chart-hidden" hidden>
           Chart hidden &mdash; answer to reveal where your hand sits.
@@ -423,8 +424,8 @@
         <span class="kicker" id="chart-title"></span>
         <span class="mono" id="chart-pct" style="font-size:12px;color:var(--muted)"></span>
       </div>
-      <div class="grid-scroll"><div class="grid" id="chart-grid"></div></div>
       <div class="legend" id="chart-legend"></div>
+      <div class="grid-scroll"><div class="grid" id="chart-grid"></div></div>
       <div style="border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px" id="chart-notation"></div>
     </div>
   </section>
@@ -569,23 +570,47 @@
   const spotLabel = (s) => `${s.seat} / ${s.facingLabel}`;
 
   // ---------- theme ----------
+  // One button. Until it is pressed the page follows the system setting, and
+  // the icon shows what pressing it would switch to.
   const root = document.documentElement;
-  const themeSeg = el("theme-seg");
+  const themeToggle = el("theme-toggle");
+  const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
-  function applyTheme(choice) {
-    if (choice === "auto") root.removeAttribute("data-theme");
-    else root.setAttribute("data-theme", choice);
-    for (const b of themeSeg.querySelectorAll("button")) {
-      b.setAttribute("aria-pressed", String(b.dataset.themeChoice === choice));
-    }
-    try { localStorage.setItem("pt-theme", choice); } catch (e) { /* private mode */ }
+  const SUN = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" '
+    + 'stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/>'
+    + '<path d="M12 2.6v2.2M12 19.2v2.2M21.4 12h-2.2M4.8 12H2.6M18.6 5.4L17 7M7 17l-1.6 1.6'
+    + 'M18.6 18.6L17 17M7 7L5.4 5.4"/></svg>';
+  const MOON = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" '
+    + 'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a8.6 8.6 0 1 0 11.1 11.1Z"/></svg>';
+
+  /** What the page is showing right now, chosen or inherited. */
+  const currentTheme = () => root.getAttribute("data-theme") || (darkQuery.matches ? "dark" : "light");
+
+  function paintToggle() {
+    const dark = currentTheme() === "dark";
+    themeToggle.innerHTML = dark ? SUN : MOON;
+    const label = dark ? "Switch to day" : "Switch to night";
+    themeToggle.setAttribute("aria-label", label);
+    themeToggle.title = label;
   }
-  let savedTheme = "auto";
-  try { savedTheme = localStorage.getItem("pt-theme") || "auto"; } catch (e) { /* ignore */ }
-  applyTheme(savedTheme);
-  for (const b of themeSeg.querySelectorAll("button")) {
-    b.onclick = () => applyTheme(b.dataset.themeChoice);
-  }
+
+  let savedTheme = null;
+  try { savedTheme = localStorage.getItem("pt-theme"); } catch (e) { /* private mode */ }
+  if (savedTheme === "light" || savedTheme === "dark") root.setAttribute("data-theme", savedTheme);
+  paintToggle();
+
+  // Still on the system setting: follow it if the system flips mid-session.
+  darkQuery.addEventListener("change", () => {
+    if (!root.hasAttribute("data-theme")) paintToggle();
+  });
+
+  themeToggle.onclick = () => {
+    const next = currentTheme() === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("pt-theme", next); } catch (e) { /* private mode */ }
+    paintToggle();
+  };
 
   // ---------- chart visibility ----------
   // Seeing the answer while you decide turns a test into a reading exercise,
@@ -823,8 +848,7 @@
         + `You rolled <b>${hand.roll}</b> (${bandText(spot, hand.hand)}), so this one is a `
         + `<b>${ACTION[correct].label.toLowerCase()}</b>.`
       : `<b>${hand.hand}</b> is always a <b>${ACTION[correct].label.toLowerCase()}</b> here`
-        + (right ? "" : `, not a ${ACTION[chosen].label.toLowerCase()}`)
-        + `. The roll does not apply. ${pctLine(spot)}.`;
+        + (right ? "." : `, not a ${ACTION[chosen].label.toLowerCase()}.`);
     box.append(head, body);
 
     const acts = document.createElement("div");
