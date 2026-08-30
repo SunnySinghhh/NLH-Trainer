@@ -1,26 +1,69 @@
 # Preflop Range Trainer
 
-A 9-max full ring preflop trainer. One self-contained HTML page - no build step
-to run it, no dependencies to install.
+An 8-handed preflop trainer. One self-contained HTML page - no build step to
+run it, no dependencies to install, nothing to serve it from.
 
-**The range data is currently empty.** The trainer, the checks and the build
-step are all intact; the ranges are being written from scratch, one position
-and one spot at a time. Until a table is filled in, the page says so rather
-than pretending to drill something.
+**Live page:** `index.html` at the repo root, ready for GitHub Pages.
+
+## The model
+
+A spot is a **position** and an **action to you**. That is the whole thing.
+
+```
+You're under the gun. The action to you is a 3-bet. Raise, call, fold or check?
+```
+
+Nothing tracks who did what to get there. UTG can be facing a 3-bet because it
+opened and someone 3-bet, or because it called and two players raised behind -
+the answer is the same either way, so the trainer does not ask.
+
+Every spot offers the same four options - **raise, call, fold, check** -
+including where an option is not legal. Checking into a 4-bet is not a thing
+you can do; it is on the board anyway, so the choice is made out of the whole
+set rather than one that has already been narrowed for you.
+
+### The roll
+
+Some hands are not played the same way every time. Those hands carry
+frequencies, and the trainer resolves them with a **1-100 roll** rather than
+picking a favourite:
+
+```
+fold   |   call   |   raise   |   check
+1 -------------------------------------- 100
+```
+
+TT facing a 3-bet from UTG is call 50% / raise 50%, so it calls on 1-50 and
+raises on 51-100. A hand that folds 80% and raises 20% folds on 1-80.
+
+**Every hand gets a roll, not just the mixed ones.** Rolling only when it
+mattered would tell you a hand was mixed before you had to decide.
+
+### Table
+
+Eight seats: `UTG MP LJ HJ CO BTN SB BB`. Seven get drilled - the **small
+blind is at the table but never the hero**, because the simulation these ranges
+come from does not cover it.
+
+Two seat/facing pairs can never happen and are not treated as gaps:
+
+- **BB / RFI** - the big blind is never folded to.
+- **A raise-or-fold seat / Open** - if a seat never limps, it can never end up
+  facing an open. This is why UTG has three columns and not four.
 
 ## Files
 
 | File | What |
 |---|---|
-| `ranges.js` | **The range data - the single source of truth.** Currently empty. |
+| `ranges.js` | **The range data - the single source of truth.** |
 | `trainer.src.html` | The page. Edit this one. |
-| `trainer.html` | Built output: data injected, pure ASCII. Do not edit. |
+| `index.html` | Built output: data injected, pure ASCII. Do not edit. |
 | `check-ranges.js` | Coherence checks on the ranges. |
 | `build.js` | Injects the data and escapes non-ASCII. |
 
 ```bash
 node check-ranges.js   # what holds, what fails, what is skipped for want of data
-node build.js          # rebuild trainer.html
+node build.js          # rebuild index.html
 ```
 
 The data lives in exactly one place and is injected at build time, so the page
@@ -28,57 +71,49 @@ can never drill something different from what the checks validate.
 
 ## Adding a spot
 
-1. **Fill in a table in `ranges.js`.** Each one carries a comment showing the
-   exact shape it expects. Ranges are written in standard notation - `66+`,
-   `88-JJ`, `ATs+`, `A2s-A5s`, `AJo+`, `T9s` - and expanded programmatically.
-2. **Run `node check-ranges.js`.** Anything structurally wrong shows up here.
-3. **Run `node build.js`.** Open `trainer.html`.
+Fill in an entry in `RANGES`, keyed by seat and then by what is facing you:
 
-Scenarios appear in the UI only when they have spots. A half-filled `ranges.js`
-gives a working trainer over exactly the spots that exist, so it is safe to
-build one position at a time.
+```js
+UTG: {
+  threebet: {
+    raise: ["QQ+", "AKs", "A2s-A5s"],   // 100% of the time
+    call:  ["99", "AQo", "KQo"],        // 100% of the time
+    mix: {                              // the rest of each hand folds
+      "TT":  { raise: 50, call: 50 },
+      "77":  { raise: 55 },             // and folds the other 45%
+      "AJs": { call: 70 },
+    },
+  },
+}
+```
 
-## The scenarios the page knows how to render
+Notation is standard - `66+`, `88-JJ`, `ATs+`, `A2s-A5s`, `AJo+`, `T9s` - and
+works as a `mix` key too. Anything not named anywhere folds every time.
 
-Each maps to one table in `ranges.js`. An empty table means the scenario is
-hidden, not broken.
-
-| Scenario | Your actions | Table |
-|---|---|---|
-| It folds to you | Raise / Fold, plus Limp or Complete where offered | `RFI` |
-| Someone raised ahead of you | 3-Bet / Call / Fold | `VS_OPEN` |
-| It got 3-bet before it reached you | Cold 4-Bet / Call / Fold | `COLD_3BET` |
-| You opened and got 3-bet | 4-Bet / Call / Fold | `VS_3BET` |
-| A 4-bet is on you | 5-Bet / Call / Fold | `VS_4BET` |
-| Someone opened and someone called | Squeeze / Call / Fold | `SQUEEZE` |
-| Limped to you, one or many | Isolate / Overlimp / Fold, or Check in the BB | `VS_LIMP` |
-
-Two of these have a wrinkle worth remembering while writing the theory:
-
-- **`VS_4BET` covers two different spots.** Normally you 3-bet and the original
-  raiser came back over the top. But an opener can also face a **cold 4-bet**
-  without ever 3-betting: you open, someone behind you 3-bets, a third player
-  4-bets. Every seat can reach that version, under the gun included - and in it
-  the 3-bettor still has a decision left behind you. Mark those entries `cold`.
-- **Under the gun can never 3-bet**, because nobody opens ahead of it. It can
-  still be 4-bet, by the route above.
+Then `node check-ranges.js` and `node build.js`. Scenarios and positions appear
+in the UI only when they have data, so a half-filled `ranges.js` gives a working
+trainer over exactly the spots that exist. It is safe to build one position at
+a time.
 
 ## What the checks establish
 
 None of them prove a range is optimal - nothing could. They catch a chart that
-contradicts itself or contradicts position: no hand given two actions, opening
-ranges widening from under the gun to the button and nesting as they go,
-defence widening against later raises, the big blind defending wider than the
-small blind, 4-bets far tighter than the opens that invite them, squeezes
-tighter than 3-betting the same opener heads-up, and so on.
+contradicts itself or contradicts position: hands that are not real hands,
+frequencies that add to more than 100%, roll bands with gaps or in the wrong
+order, aces getting folded, opening ranges that fail to widen and nest from
+under the gun to the button, continuing ranges that get wider against a 4-bet
+than against a 3-bet, and trash opening from early position.
 
 A check with no data to run against reports as **skipped**, not passed, so a
-half-filled `ranges.js` never reads as a clean bill of health.
+half-filled `ranges.js` never reads as a clean bill of health. The run also
+prints every mixed hand with its frequencies and its roll bands, which is the
+fastest way to eyeball whether the estimates match the source charts.
 
-Some checks encode opinions about chart shape that were written for the
-previous data set. As the new ranges go in, a check that fights a deliberate
-choice should be changed or removed rather than worked around - it is there to
-express the theory, not to outrank it.
+## About the ranges
+
+Read off chart images and **estimated where cells are split by frequency**.
+Written against **8-handed, 100bb, a ~2.5bb open, no ante or straddle**. Facing
+larger opens you should defend tighter than this; facing min-raises, wider.
 
 ## Why the ASCII step
 

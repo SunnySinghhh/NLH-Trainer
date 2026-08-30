@@ -12,46 +12,34 @@
  */
 
 const fs = require("fs");
-const { SEATS, SEAT_NAMES, BUCKETS, SPOTS, percentOf } = require("./ranges.js");
+const { SEATS, SEAT_NAMES, TESTED_SEATS, FACING, OPTIONS, RNG_ORDER, SPOTS } = require("./ranges.js");
 
 const payload = {
   seats: SEATS,
   seatNames: SEAT_NAMES,
-  buckets: Object.fromEntries(
-    Object.entries(BUCKETS).map(([id, b]) => [id, { label: b.label, seats: b.seats }]),
-  ),
-  spots: SPOTS.map((s) => {
-    // Only non-fold hands are stored; anything absent is a fold (or a check,
-    // in the one spot where folding is not an option).
-    const assign = {};
-    for (const action of Object.keys(s.sets)) {
-      for (const hand of s.sets[action]) assign[hand] = action;
-    }
-    const pct = {};
-    for (const action of Object.keys(s.sets)) pct[action] = Number(percentOf(s.sets[action]).toFixed(2));
-
-    return {
-      id: s.id,
-      scenario: s.scenario,
-      hero: s.hero,
-      heroSeats: s.heroSeats,
-      heroName: s.heroName,
-      behind: s.behind,
-      vs: s.vs || null,
-      vsName: s.vsName || null,
-      actions: s.actions,
-      labels: s.labels || null,
-      checksRest: Boolean(s.checksRest),
-      cold: Boolean(s.cold),
-      assign,
-      pct,
-      notation: s.notation,
-    };
-  }),
+  testedSeats: TESTED_SEATS,
+  facing: FACING,
+  options: OPTIONS,
+  rngOrder: RNG_ORDER,
+  spots: SPOTS.map((s) => ({
+    id: s.id,
+    seat: s.seat,
+    seatName: s.seatName,
+    facing: s.facing,
+    facingLabel: s.facingLabel,
+    facingFull: s.facingFull,
+    // hand -> {action: percent}. Anything absent folds 100% of the time.
+    weights: s.weights,
+    // hand -> [{action, lo, hi}] covering 1-100, in fold/call/raise/check order.
+    bands: s.bands,
+    mixedCount: s.mixedCount,
+    pct: s.pct,
+    notation: s.notation,
+  })),
 };
 
 const src = `${__dirname}/trainer.src.html`;
-const out = `${__dirname}/trainer.html`;
+const out = `${__dirname}/index.html`;
 const html = fs.readFileSync(src, "utf8");
 
 if (!html.includes("__RANGE_DATA__")) throw new Error("template has no __RANGE_DATA__ placeholder");
@@ -74,4 +62,7 @@ const bad = [...new Set([...built].filter((c) => c.charCodeAt(0) > 127))];
 if (bad.length) throw new Error(`still non-ASCII: ${bad.join(" ")}`);
 
 fs.writeFileSync(out, built);
-console.log(`wrote trainer.html — ${payload.spots.length} spots, ${built.length} bytes, pure ASCII`);
+const mixed = SPOTS.reduce((t, s) => t + s.mixedCount, 0);
+console.log(
+  `wrote index.html - ${payload.spots.length} spots, ${mixed} mixed hands, ${built.length} bytes, pure ASCII`,
+);

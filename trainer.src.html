@@ -162,6 +162,25 @@
   .story b { color: var(--text); font-weight: 600; }
 
   .hand-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .roll {
+    margin-left: auto; display: grid; gap: 3px 10px; align-items: center;
+    grid-template-columns: auto auto; padding: 10px 14px;
+    border: 1px dashed var(--line-strong); border-radius: 9px; background: var(--surface-2);
+  }
+  .roll .kicker { grid-column: 1; }
+  .roll-value {
+    grid-column: 2; grid-row: 1 / span 2; justify-self: end;
+    font-family: "JetBrains Mono", monospace; font-size: 27px; font-weight: 700;
+    font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+  }
+  button.roll-again {
+    grid-column: 1; appearance: none; font: inherit; font-size: 11.5px; font-weight: 600;
+    padding: 3px 9px; border-radius: 6px; cursor: pointer; justify-self: start;
+    border: 1px solid var(--line-strong); background: var(--surface); color: var(--muted);
+  }
+  button.roll-again:hover { color: var(--text); }
+  .roll-note { grid-column: 1 / -1; margin: 4px 0 0; font-size: 11px; color: var(--faint); max-width: 30ch; line-height: 1.5; }
+  @media (max-width: 560px) { .roll { margin-left: 0; } }
   .cards { display: flex; gap: 8px; }
   .pcard {
     width: 58px; height: 80px; border-radius: 7px;
@@ -210,9 +229,11 @@
     display: flex; align-items: center; justify-content: center;
     background: var(--fold-wash); color: var(--faint);
   }
-  .cell.c-raise, .cell.c-threebet { background: var(--raise); color: var(--raise-ink); font-weight: 600; }
+  .cell.c-raise { background: var(--raise); color: var(--raise-ink); font-weight: 600; }
   .cell.c-call { background: var(--call); color: var(--call-ink); font-weight: 600; }
   .cell.c-check { background: var(--check); color: var(--check-ink); font-weight: 600; }
+  /* Split by frequency: the gradient is set inline from the hand's own bands. */
+  .cell.c-mix { color: var(--raise-ink); font-weight: 600; text-shadow: 0 0 3px rgba(0,0,0,.28); }
   .cell.mark { outline: 2.5px solid var(--text); outline-offset: 1px; z-index: 2; position: relative; }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11.5px; color: var(--muted); align-items: center; }
   .sw { width: 11px; height: 11px; border-radius: 2px; display: inline-block; margin-right: 5px; vertical-align: -1px; }
@@ -267,11 +288,12 @@
 <div class="wrap">
   <div class="top">
     <div>
-      <span class="kicker">9-max full ring</span>
+      <span class="kicker">8-handed &middot; 100bb</span>
       <h1>Preflop Range Trainer</h1>
       <p class="sub">
-        Drill a preflop decision, then see exactly where your hand sat in the
-        range. Scenarios appear here as their ranges are filled in.
+        Your cards, your position, and what the action to you is. Pick raise,
+        call, fold or check &mdash; then see exactly where your hand sat in the
+        range.
       </p>
     </div>
     <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
@@ -319,6 +341,15 @@
             <div class="hand-title" id="hand"></div>
             <p class="hand-sub" id="hand-sub"></p>
           </div>
+          <div class="roll">
+            <span class="kicker">Roll</span>
+            <span class="roll-value" id="roll-value">-</span>
+            <button class="roll-again" type="button" id="reroll">Roll again</button>
+            <p class="roll-note">
+              Rolled for every hand. It only matters on a hand played more than
+              one way &mdash; then it picks which way, this time.
+            </p>
+          </div>
         </div>
 
         <div id="answer-area"></div>
@@ -347,8 +378,12 @@
         <div class="stat"><span class="k">Best streak</span><span class="v" id="s-best">0</span></div>
       </div>
       <div>
-        <span class="kicker" style="display:block;margin-bottom:8px">Accuracy by scenario</span>
-        <div class="bars" id="bars-scenario"></div>
+        <span class="kicker" style="display:block;margin-bottom:8px">Accuracy by action to you</span>
+        <div class="bars" id="bars-facing"></div>
+      </div>
+      <div>
+        <span class="kicker" style="display:block;margin-bottom:8px">Accuracy by position</span>
+        <div class="bars" id="bars-seat"></div>
       </div>
       <div id="weak-wrap" hidden>
         <span class="kicker" style="display:block;margin-bottom:8px">Weakest spots</span>
@@ -358,8 +393,12 @@
 
     <div class="panel stats" id="drill-filters">
       <div class="filters">
-        <span class="kicker">Drill</span>
-        <span class="seg" id="scenario-seg"></span>
+        <span class="kicker">Action to you</span>
+        <span class="seg" id="facing-seg"></span>
+      </div>
+      <div class="filters">
+        <span class="kicker">Position</span>
+        <span class="seg" id="seat-seg"></span>
       </div>
       <div class="filters">
         <span class="kicker">Chart</span>
@@ -383,9 +422,6 @@
     <div class="panel grid-panel" id="charts-panel">
       <div class="filters">
         <span class="kicker">Spot</span>
-        <span class="seg" id="chart-scenario-seg"></span>
-      </div>
-      <div class="filters">
         <span class="seg" id="chart-spot-seg"></span>
       </div>
       <div class="grid-head">
@@ -399,31 +435,46 @@
   </section>
 
   <section class="panel provenance">
-    <span class="kicker">Where these ranges come from</span>
+    <span class="kicker">How this works and where the ranges come from</span>
     <p id="prov-empty" hidden>
       <b>No range data is loaded.</b> Every table in <code>ranges.js</code> is
-      empty, so there is nothing to drill and nothing to chart yet. The ranges
-      are being written from scratch, one position and one spot at a time.
+      empty, so there is nothing to drill and nothing to chart yet.
     </p>
     <p>
-      Ranges live in <code>ranges.js</code> and are injected into this page at
-      build time, so the trainer can never drill something different from what
-      <code>check-ranges.js</code> validates.
+      <b>A spot is a position and an action to you</b> &mdash; nothing more.
+      Whether a 3-bet reached you because you opened and got raised, or because
+      you called and two players raised behind, the right answer is the same,
+      so the trainer does not ask. Every spot offers the same four options,
+      including ones that are not legal: the choice is made out of the whole
+      set rather than one already narrowed for you.
+    </p>
+    <p>
+      <b>The roll.</b> Some hands are not played the same way every time. Those
+      cells are split in the chart, and the number rolled for each hand decides
+      which way this one goes: <b>fold at the bottom of 1-100, then call, then
+      raise</b>. A hand that calls half the time and raises half the time calls
+      on 1-50 and raises on 51-100. Every hand gets a roll, not just the mixed
+      ones &mdash; rolling only when it mattered would tell you a hand was mixed
+      before you had to decide.
+    </p>
+    <p>
+      <b>Assumptions baked in:</b> 8-handed, 100bb effective, a standard
+      <b>~2.5bb open</b>, and no ante or straddle. Facing much larger opens you
+      should defend tighter than this; facing min-raises, wider. The small
+      blind is at the table but is never drilled, because the simulation these
+      ranges come from does not cover it.
     </p>
     <p>
       <b>What is actually verified:</b> structural checks run over all
-      <span id="spot-count">0</span> spots on every build &mdash; no hand is
-      ever given two actions, ranges widen with position, defence widens
-      against later raises, and so on. A check with nothing to run against
-      reports as <i>skipped</i> rather than passing, so a half-filled chart
-      never reads as green. These catch a chart that contradicts itself; they
-      cannot tell you it is the best strategy.
+      <span id="spot-count">0</span> spots on every build &mdash; every hand is
+      a real starting hand, no hand's frequencies add to more than 100%, the
+      1-100 bands cover every roll exactly once with no gaps, aces are never
+      folded, opening ranges widen and nest from under the gun to the button,
+      and continuing ranges tighten from a 3-bet to a 4-bet. A check with
+      nothing to run against reports as <i>skipped</i> rather than passing, so a
+      half-filled chart never reads as green. These catch a chart that
+      contradicts itself; they cannot tell you it is the best strategy.
     </p>
-    <!-- Once ranges exist, state the assumptions they were written against
-         here: table size, effective stack, the opening size every defending
-         range assumes, ante/straddle, and whether the opponent's seat is
-         bucketed or exact. Those assumptions change the right answer and are
-         invisible to the user otherwise. -->
   </section>
 </div>
 
@@ -434,7 +485,8 @@
   const DATA = __RANGE_DATA__;
   const SPOTS = DATA.spots;
   const SEATS = DATA.seats;
-  const BUCKETS = DATA.buckets;
+  const FACING = DATA.facing;
+  const OPTIONS = DATA.options;
 
   const RANKS = "23456789TJQKA";
   const GRID = "AKQJT98765432";
@@ -443,55 +495,28 @@
 
   // "You're ..." reads naturally for every seat only if the preposition varies.
   const SEAT_PHRASE = {
-    "UTG": "under the gun",
-    "UTG+1": "under the gun + 1",
-    "UTG+2": "under the gun + 2",
-    "LJ": "in the lojack",
-    "HJ": "in the hijack",
-    "CO": "in the cutoff",
-    "BTN": "on the button",
-    "SB": "in the small blind",
-    "BB": "in the big blind",
+    UTG: "under the gun",
+    MP: "in middle position",
+    LJ: "in the lojack",
+    HJ: "in the hijack",
+    CO: "in the cutoff",
+    BTN: "on the button",
+    SB: "in the small blind",
+    BB: "in the big blind",
   };
 
+  /**
+   * Every spot offers all four, in this order, whether or not the action is
+   * legal. Checking into a 4-bet is not a thing you can do; it is on the board
+   * anyway, so the choice is made out of the whole set rather than out of one
+   * that has already been narrowed for you.
+   */
   const ACTION = {
-    raise:    { label: "Raise",  key: "r", verb: "raising" },
-    threebet: { label: "3-Bet",  key: "t", verb: "3-betting" },
-    call:     { label: "Call",   key: "c", verb: "calling" },
-    fourbet:  { label: "4-Bet",  key: "b", verb: "4-betting" },
-    fivebet:  { label: "Shove",  key: "v", verb: "shoving" },
-    squeeze:  { label: "Squeeze", key: "q", verb: "squeezing" },
-    check:    { label: "Check",  key: "x", verb: "checking" },
-    fold:     { label: "Fold",   key: "f", verb: "folding" },
+    raise: { label: "Raise", key: "r", verb: "raising" },
+    call:  { label: "Call",  key: "c", verb: "calling" },
+    fold:  { label: "Fold",  key: "f", verb: "folding" },
+    check: { label: "Check", key: "x", verb: "checking" },
   };
-
-  const SCENARIOS = {
-    rfi:     { label: "Folded to you", short: "Folded to you" },
-    vsopen:  { label: "Opened to you", short: "Facing a raise" },
-    vs3bet:  { label: "You open, 3-bet", short: "Facing a 3-bet" },
-    vs3betcold: { label: "3-bet before you", short: "Cold 4-bet spot" },
-    vs4bet:  { label: "You 3-bet, 4-bet", short: "Facing a 4-bet" },
-    squeeze: { label: "Open + caller", short: "Squeeze" },
-    vslimp:  { label: "Limped to you", short: "Facing a limp" },
-  };
-
-  /** Seats a squeeze opener can occupy, and seats a 4-bettor can have opened from. */
-  const SQUEEZE_SEATS = {
-    EP: ["UTG", "UTG+1", "UTG+2"],
-    MP: ["LJ", "HJ"],
-    LATE: ["CO", "BTN"],
-  };
-  const FOURBET_SEATS = {
-    "IP-EARLY": ["UTG", "UTG+1", "UTG+2", "LJ", "HJ"],
-    "BLIND-EARLY": ["UTG", "UTG+1", "UTG+2", "LJ", "HJ"],
-    "IP-LATE": ["CO"],
-    "BLIND-LATE": ["CO", "BTN"],
-  };
-  const NON_BLIND = ["UTG", "UTG+1", "UTG+2", "LJ", "HJ", "CO", "BTN"];
-
-  /** A spot can rename an action: the small blind "completes", it does not "call". */
-  const actionLabel = (spot, action) =>
-    (spot.labels && spot.labels[action]) || ACTION[action].label;
 
   const rankOf = (c) => c >> 2;
   const suitOf = (c) => c & 3;
@@ -510,20 +535,56 @@
   }
 
   function cardEl(card) {
-    const el = document.createElement("div");
-    el.className = "pcard" + (RED[suitOf(card)] ? " red" : "");
+    const node = document.createElement("div");
+    node.className = "pcard" + (RED[suitOf(card)] ? " red" : "");
     const r = document.createElement("span"); r.className = "r"; r.textContent = RANKS[rankOf(card)];
     const s = document.createElement("span"); s.className = "s"; s.textContent = SUITS[suitOf(card)];
-    el.append(r, s);
-    return el;
+    node.append(r, s);
+    return node;
   }
 
   const el = (id) => document.getElementById(id);
   const pick = (list) => list[Math.floor(Math.random() * list.length)];
+  const roll100 = () => 1 + Math.floor(Math.random() * 100);
 
-  /** Whatever a hand is not explicitly assigned is the spot's default action. */
-  const defaultAction = (spot) => (spot.checksRest ? "check" : "fold");
-  const actionFor = (spot, hand) => spot.assign[hand] || defaultAction(spot);
+  // ---------- ranges ----------
+  // A hand the range never mentions folds every time. A hand the range does
+  // mention carries 1-100 bands; where there is only one band the roll is
+  // irrelevant, and where there are two or more it decides.
+  const FOLD_ONLY = [{ action: "fold", lo: 1, hi: 100 }];
+  const bandsFor = (spot, hand) => spot.bands[hand] || FOLD_ONLY;
+  const isMixed = (spot, hand) => bandsFor(spot, hand).length > 1;
+
+  /** The action the roll lands on. */
+  function actionFor(spot, hand, roll) {
+    for (const band of bandsFor(spot, hand)) {
+      if (roll >= band.lo && roll <= band.hi) return band.action;
+    }
+    return "fold";
+  }
+
+  /** "call 50%, raise 50%" - how a mixed hand is actually played. */
+  function mixText(spot, hand) {
+    return bandsFor(spot, hand)
+      .map((b) => `${ACTION[b.action].label.toLowerCase()} ${b.hi - b.lo + 1}%`)
+      .join(", ");
+  }
+
+  /** "1-50 call, 51-100 raise" - which roll leads where. */
+  function bandText(spot, hand) {
+    return bandsFor(spot, hand)
+      .map((b) => `${b.lo}-${b.hi} ${ACTION[b.action].label.toLowerCase()}`)
+      .join(", ");
+  }
+
+  function pctLine(spot) {
+    return OPTIONS.filter((a) => spot.pct[a])
+      .map((a) => `${ACTION[a].label.toLowerCase()} ${spot.pct[a].toFixed(1)}%`)
+      .join(" · ");
+  }
+
+  const spotShort = (s) => `${s.seat} · ${s.facingLabel}`;
+  const spotTitle = (s) => `${s.seat}, facing ${s.facingFull}`;
 
   // ---------- theme ----------
   const root = document.documentElement;
@@ -558,18 +619,15 @@
     try { localStorage.setItem("pt-chart", mode); } catch (e) { /* private mode */ }
   }
 
-  /** Shows the grid, or the placeholder, for the current mode and answer state. */
   function syncChartVisibility() {
     const visible = chartMode === "always" || (chartMode === "after" && answered);
     el("chart-body").hidden = !visible;
     el("chart-hidden").hidden = visible;
     // The range percentages give the answer away just as readily as the grid.
     el("grid-pct").hidden = !visible;
-    if (chartMode === "never") {
-      el("chart-hidden").innerHTML = "Chart off &mdash; switch to After answering to review your hand.";
-    } else {
-      el("chart-hidden").innerHTML = "Chart hidden &mdash; answer to reveal where your hand sits.";
-    }
+    el("chart-hidden").innerHTML = chartMode === "never"
+      ? "Chart off &mdash; switch to After answering to review your hand."
+      : "Chart hidden &mdash; answer to reveal where your hand sits.";
   }
 
   let savedChart = "after";
@@ -578,26 +636,51 @@
   for (const b of chartModeSeg.querySelectorAll("button")) {
     b.onclick = () => {
       applyChartMode(b.dataset.chartMode);
-      if (spot) {
-        renderGrid(el("drill-grid"), spot.spot, answered ? spot.hand : null);
-        renderLegend(el("drill-legend"), spot.spot,
-          answered ? spot.hand + " is outlined" : "your hand is outlined once you answer");
-      }
+      if (hand) redrawDrillGrid();
       syncChartVisibility();
     };
   }
 
   // ---------- grid ----------
+  const SWATCH = {
+    raise: "var(--raise)",
+    call: "var(--call)",
+    check: "var(--check)",
+    fold: "var(--fold-wash)",
+  };
+
+  /**
+   * A mixed cell is painted as a stack, aggressive at the top and folds at the
+   * bottom, which is how these charts are drawn everywhere else. The stack is
+   * the frequency: half the cell red means half the time.
+   */
+  function paintCell(cell, bands) {
+    if (bands.length === 1) {
+      cell.classList.add("c-" + bands[0].action);
+      return;
+    }
+    const stops = [];
+    let at = 0;
+    for (const band of [...bands].reverse()) {
+      const width = band.hi - band.lo + 1;
+      stops.push(`${SWATCH[band.action]} ${at}%`, `${SWATCH[band.action]} ${at + width}%`);
+      at += width;
+    }
+    cell.style.background = `linear-gradient(to bottom, ${stops.join(", ")})`;
+    cell.classList.add("c-mix");
+  }
+
   function renderGrid(target, spot, mark) {
     target.replaceChildren();
     for (let row = 0; row < 13; row++) {
       for (let col = 0; col < 13; col++) {
-        const hand = handAt(row, col);
-        const action = actionFor(spot, hand);
+        const name = handAt(row, col);
+        const bands = bandsFor(spot, name);
         const cell = document.createElement("div");
-        cell.className = "cell c-" + action + (hand === mark ? " mark" : "");
-        cell.textContent = hand;
-        cell.title = `${hand} — ${actionLabel(spot, action).toLowerCase()}`;
+        cell.className = "cell" + (name === mark ? " mark" : "");
+        cell.textContent = name;
+        cell.title = `${name} — ${bands.length > 1 ? mixText(spot, name) : ACTION[bands[0].action].label.toLowerCase()}`;
+        paintCell(cell, bands);
         target.append(cell);
       }
     }
@@ -605,17 +688,22 @@
 
   function renderLegend(target, spot, extra) {
     target.replaceChildren();
-    for (const action of spot.actions) {
+    for (const action of OPTIONS) {
+      if (!spot.pct[action]) continue;
       const span = document.createElement("span");
       const sw = document.createElement("i");
       sw.className = "sw";
-      if (action === "fold") {
-        sw.style.background = "var(--fold-wash)";
-        sw.style.border = "1px solid var(--line)";
-      } else {
-        sw.style.background = `var(--${action === "threebet" ? "raise" : action})`;
-      }
-      span.append(sw, document.createTextNode(actionLabel(spot, action).toLowerCase()));
+      sw.style.background = SWATCH[action];
+      if (action === "fold") sw.style.border = "1px solid var(--line)";
+      span.append(sw, document.createTextNode(ACTION[action].label.toLowerCase()));
+      target.append(span);
+    }
+    if (spot.mixedCount) {
+      const span = document.createElement("span");
+      const sw = document.createElement("i");
+      sw.className = "sw";
+      sw.style.background = "linear-gradient(to bottom, var(--raise) 50%, var(--call) 50%)";
+      span.append(sw, document.createTextNode(`${spot.mixedCount} split by frequency`));
       target.append(span);
     }
     if (extra) {
@@ -626,205 +714,102 @@
     }
   }
 
-  function pctLine(spot) {
-    return spot.actions
-      .filter((a) => spot.pct[a] !== undefined)
-      .map((a) => `${actionLabel(spot, a).toLowerCase()} ${spot.pct[a].toFixed(1)}%`)
-      .join(" · ");
-  }
-
   // ---------- drill ----------
-  // Ranges are filled in spot by spot, so at any moment only some scenarios
-  // exist. A scenario with no spots is not shown at all rather than offered
-  // and then dealing nothing.
-  const AVAILABLE = Object.keys(SCENARIOS).filter((k) => SPOTS.some((s) => s.scenario === k));
+  // A spot only exists once its range is written, so the filters are built
+  // from the data rather than from a fixed list.
+  const FACING_KEYS = Object.keys(FACING).filter((k) => SPOTS.some((s) => s.facing === k));
+  const SEAT_KEYS = SEATS.filter((k) => SPOTS.some((s) => s.seat === k));
   const HAS_DATA = SPOTS.length > 0;
 
-  let enabled = [...AVAILABLE];
-  let spot = null;
+  let onFacing = [...FACING_KEYS];
+  let onSeats = [...SEAT_KEYS];
+  let hand = null;
   let answered = false;
   const tally = new Map();
   let totals = { n: 0, right: 0, streak: 0, best: 0 };
 
+  const inPool = (s) => onFacing.includes(s.facing) && onSeats.includes(s.seat);
+
   function deal() {
-    const pool = SPOTS.filter((s) => enabled.includes(s.scenario));
+    const pool = SPOTS.filter(inPool);
     if (!pool.length) return null;
-    const chosen = pick(pool);
-    const heroSeat = pick(chosen.heroSeats);
-
-    const before = (seat) => SEATS.filter((x) => SEATS.indexOf(x) < SEATS.indexOf(seat));
-    const after = (seat) => SEATS.filter((x) => SEATS.indexOf(x) > SEATS.indexOf(seat));
-
-    let villainSeat = null;   // whoever made the last aggressive action
-    let callerSeat = null;    // the cold-caller in a squeeze
-    let limperSeats = [];
-
-    if (chosen.scenario === "vsopen") {
-      const candidates = BUCKETS[chosen.vs].seats.filter((x) => SEATS.indexOf(x) < SEATS.indexOf(heroSeat));
-      villainSeat = candidates.length ? pick(candidates) : BUCKETS[chosen.vs].seats[0];
-    } else if (chosen.scenario === "vslimp") {
-      const pool = before(heroSeat);
-      const wanted = chosen.limpers === "many" ? 2 : 1;
-      limperSeats = pool.slice(-Math.min(wanted, pool.length));
-      villainSeat = limperSeats[0] || null;
-    } else if (chosen.scenario === "vs3bet") {
-      // You opened; the 3-bet came from behind you.
-      if (chosen.vs === "SB" || chosen.vs === "BB") villainSeat = chosen.vs;
-      else {
-        const candidates = after(heroSeat).filter((x) => NON_BLIND.includes(x));
-        villainSeat = candidates.length ? pick(candidates) : "BTN";
-      }
-    } else if (chosen.scenario === "vs4bet" && chosen.cold) {
-      // You opened. Someone behind you 3-bet, and a third player 4-bet.
-      const threePool = after(heroSeat).filter(
-        (x) => SEATS.indexOf(x) < SEATS.length - 1,
-      );
-      callerSeat = threePool.length ? threePool[Math.floor(Math.random() * (threePool.length - 1))] : null;
-      const fourPool = callerSeat ? after(callerSeat) : [];
-      villainSeat = fourPool.length ? pick(fourPool) : null;
-    } else if (chosen.scenario === "vs4bet") {
-      // You 3-bet; the original raiser came over the top.
-      const candidates = (FOURBET_SEATS[chosen.hero] || NON_BLIND)
-        .filter((x) => SEATS.indexOf(x) < SEATS.indexOf(heroSeat));
-      villainSeat = candidates.length ? pick(candidates) : "CO";
-    } else if (chosen.scenario === "vs3betcold") {
-      // Someone opened, someone after them 3-bet, and it is on you cold.
-      const openerPool = (SQUEEZE_SEATS[chosen.vs] || [])
-        .filter((x) => SEATS.indexOf(x) < SEATS.indexOf(heroSeat) - 1);
-      callerSeat = openerPool.length ? pick(openerPool) : null;
-      const threePool = callerSeat
-        ? SEATS.filter(
-            (x) => SEATS.indexOf(x) > SEATS.indexOf(callerSeat)
-              && SEATS.indexOf(x) < SEATS.indexOf(heroSeat)
-              && NON_BLIND.includes(x),
-          )
-        : [];
-      villainSeat = threePool.length ? pick(threePool) : null;
-    } else if (chosen.scenario === "squeeze") {
-      const openers = (SQUEEZE_SEATS[chosen.vs] || [])
-        .filter((x) => SEATS.indexOf(x) < SEATS.indexOf(heroSeat));
-      villainSeat = openers.length ? pick(openers) : SQUEEZE_SEATS[chosen.vs][0];
-      const callers = SEATS.filter(
-        (x) => SEATS.indexOf(x) > SEATS.indexOf(villainSeat) && SEATS.indexOf(x) < SEATS.indexOf(heroSeat),
-      );
-      callerSeat = callers.length ? pick(callers) : null;
-    }
-
+    const spot = pick(pool);
     const a = Math.floor(Math.random() * 52);
     let b = Math.floor(Math.random() * 51);
     if (b >= a) b += 1;
-    return { spot: chosen, heroSeat, villainSeat, callerSeat, limperSeats, cards: [a, b], hand: handOf(a, b) };
+    // Rolled for every hand, not just the mixed ones. Rolling only when a hand
+    // is mixed would tell you it is mixed before you had to decide.
+    return { spot, cards: [a, b], hand: handOf(a, b), roll: roll100() };
   }
 
   function renderSeats(state) {
     const strip = el("seats");
     strip.replaceChildren();
-    const heroIndex = SEATS.indexOf(state.heroSeat);
-    SEATS.forEach((name, i) => {
+    for (const name of SEATS) {
       const s = document.createElement("span");
-      let cls = "seat";
-      if (name === state.heroSeat) cls += " hero";
-      else if (name === state.villainSeat) cls += " villain";
-      else if (name === state.callerSeat) cls += " caller";
-      else if ((state.limperSeats || []).includes(name)) cls += " caller";
-      else if (i > heroIndex) cls += " behind";
-      s.className = cls;
+      s.className = "seat" + (name === state.spot.seat ? " hero" : "");
       s.textContent = name;
       strip.append(s);
-    });
+    }
   }
 
-  function storyFor(state) {
-    const phrase = SEAT_PHRASE[state.heroSeat];
-    const behind = SEATS.length - 1 - SEATS.indexOf(state.heroSeat);
-    const behindText = `<b>${behind}</b> player${behind === 1 ? "" : "s"} still to act behind you`;
-    const isAre = behind === 1 ? "is" : "are";
-    if (state.spot.scenario === "rfi") {
-      return `It folds to you. You're <b>${phrase}</b>, with ${behindText}.`;
-    }
-    if (state.spot.scenario === "vsopen") {
-      return `You're <b>${phrase}</b>. <b>${state.villainSeat}</b> raises `
-        + `(${state.spot.vsName}), and there ${isAre} ${behindText}.`;
-    }
-    if (state.spot.scenario === "vs3bet") {
-      return `You open from <b>${state.heroSeat}</b> and <b>${state.villainSeat}</b> `
-        + `3-bets (${state.spot.vsName}).`;
-    }
-    if (state.spot.scenario === "vs4bet" && state.spot.cold) {
-      const three = state.callerSeat ? `<b>${state.callerSeat}</b>` : "a player behind you";
-      const four = state.villainSeat ? `<b>${state.villainSeat}</b>` : "a third player";
-      return `You open <b>${phrase}</b>. ${three} 3-bets and ${four} cold 4-bets. `
-        + `Back to you, and the 3-bettor still has a decision behind you.`;
-    }
-    if (state.spot.scenario === "vs4bet") {
-      return `<b>${state.villainSeat}</b> opens, you 3-bet <b>${phrase}</b>, `
-        + `and they 4-bet.`;
-    }
-    if (state.spot.scenario === "vs3betcold") {
-      const opener = state.callerSeat ? `<b>${state.callerSeat}</b>` : "an early player";
-      const three = state.villainSeat ? `<b>${state.villainSeat}</b>` : "someone behind them";
-      return `${opener} raises and ${three} 3-bets. It is on you cold, `
-        + `<b>${phrase}</b>, with nothing yet invested.`;
-    }
-    if (state.spot.scenario === "squeeze") {
-      const caller = state.callerSeat ? `<b>${state.callerSeat}</b> calls` : "another player calls";
-      return `<b>${state.villainSeat}</b> raises from ${state.spot.vsName} and ${caller}. `
-        + `You're <b>${phrase}</b>, with ${behindText}.`;
-    }
-    const many = (state.limperSeats || []).length > 1;
-    const who = many
-      ? `<b>${state.limperSeats.join("</b> and <b>")}</b> limp`
-      : `<b>${state.villainSeat}</b> limps`;
-    return `You're <b>${phrase}</b>. ${who}, with ${behindText}.`;
+  function redrawDrillGrid() {
+    renderGrid(el("drill-grid"), hand.spot, answered ? hand.hand : null);
+    renderLegend(el("drill-legend"), hand.spot,
+      answered ? hand.hand + " is outlined" : "your hand is outlined once you answer");
   }
 
-  function questionFor(spot) {
-    return spot.actions.map((a) => actionLabel(spot, a)).join(", ").replace(/, ([^,]*)$/, " or $1") + "?";
+  function renderRoll(state) {
+    el("roll-value").textContent = state.roll;
   }
 
   function newHand() {
     const dealt = deal();
     if (!dealt) return;
-    spot = dealt;
+    hand = dealt;
     answered = false;
-    renderSeats(spot);
-    el("story").innerHTML = storyFor(spot) + " " + questionFor(spot.spot);
-    el("cards").replaceChildren(cardEl(spot.cards[0]), cardEl(spot.cards[1]));
-    el("hand").textContent = spot.hand;
-    el("hand-sub").textContent =
-      spot.hand.length === 2 ? "pocket pair" : spot.hand[2] === "s" ? "suited" : "offsuit";
 
-    el("grid-title").textContent = SCENARIOS[spot.spot.scenario].short
-      + (spot.spot.vs ? ` from ${spot.spot.vsName}` : "");
-    el("grid-pct").textContent = pctLine(spot.spot);
-    renderGrid(el("drill-grid"), spot.spot, null);
-    renderLegend(el("drill-legend"), spot.spot, "your hand is outlined once you answer");
+    renderSeats(hand);
+    el("story").innerHTML =
+      `You're <b>${SEAT_PHRASE[hand.spot.seat]}</b>. The action to you is `
+      + `<b>${hand.spot.facingFull}</b>. Raise, call, fold or check?`;
+    el("cards").replaceChildren(cardEl(hand.cards[0]), cardEl(hand.cards[1]));
+    el("hand").textContent = hand.hand;
+    el("hand-sub").textContent =
+      hand.hand.length === 2 ? "pocket pair" : hand.hand[2] === "s" ? "suited" : "offsuit";
+    renderRoll(hand);
+
+    el("grid-title").textContent = spotTitle(hand.spot);
+    el("grid-pct").textContent = pctLine(hand.spot);
+    redrawDrillGrid();
     syncChartVisibility();
 
     const area = el("answer-area");
     area.replaceChildren();
     const acts = document.createElement("div");
     acts.className = "acts";
-    for (const action of spot.spot.actions) {
+    for (const action of OPTIONS) {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "act a-" + action;
-      b.textContent = actionLabel(spot.spot, action);
+      b.textContent = ACTION[action].label;
       b.onclick = () => answer(action);
       acts.append(b);
     }
     const hint = document.createElement("span");
     hint.className = "hint";
-    hint.textContent = spot.spot.actions.map((a) => ACTION[a].key.toUpperCase()).join(" / ");
+    hint.textContent = OPTIONS.map((a) => ACTION[a].key.toUpperCase()).join(" / ");
     acts.append(hint);
     area.append(acts);
   }
 
   function answer(chosen) {
-    if (answered || !spot) return;
+    if (answered || !hand) return;
     answered = true;
-    const correctAction = actionFor(spot.spot, spot.hand);
-    const right = chosen === correctAction;
+    const spot = hand.spot;
+    const correct = actionFor(spot, hand.hand, hand.roll);
+    const mixed = isMixed(spot, hand.hand);
+    const right = chosen === correct;
 
     totals.n += 1;
     if (right) {
@@ -834,14 +819,13 @@
     } else {
       totals.streak = 0;
     }
-    for (const key of [spot.spot.scenario, "spot:" + spot.spot.id]) {
+    for (const key of [spot.facing, "seat:" + spot.seat, "spot:" + spot.id]) {
       const t = tally.get(key) || { n: 0, right: 0 };
       t.n += 1; if (right) t.right += 1;
       tally.set(key, t);
     }
 
-    renderGrid(el("drill-grid"), spot.spot, spot.hand);
-    renderLegend(el("drill-legend"), spot.spot, spot.hand + " is outlined");
+    redrawDrillGrid();
     syncChartVisibility();
 
     const area = el("answer-area");
@@ -851,12 +835,16 @@
     box.className = "verdict " + (right ? "ok" : "no");
     const head = document.createElement("div");
     head.className = "head";
-    head.textContent = right ? "Correct" : `${actionLabel(spot.spot, correctAction)} is the play`;
+    head.textContent = right ? "Correct" : `${ACTION[correct].label} is the play`;
     const body = document.createElement("p");
     body.className = "body";
-    body.innerHTML = `<b>${spot.hand}</b> is a <b>${actionLabel(spot.spot, correctAction).toLowerCase()}</b> here`
-      + (right ? "" : `, not a ${actionLabel(spot.spot, chosen).toLowerCase()}`)
-      + `. ${pctLine(spot.spot)}.`;
+    body.innerHTML = mixed
+      ? `<b>${hand.hand}</b> is a frequency spot here: <b>${mixText(spot, hand.hand)}</b>. `
+        + `You rolled <b>${hand.roll}</b> (${bandText(spot, hand.hand)}), so this one is a `
+        + `<b>${ACTION[correct].label.toLowerCase()}</b>.`
+      : `<b>${hand.hand}</b> is always a <b>${ACTION[correct].label.toLowerCase()}</b> here`
+        + (right ? "" : `, not a ${ACTION[chosen].label.toLowerCase()}`)
+        + `. The roll does not apply. ${pctLine(spot)}.`;
     box.append(head, body);
 
     const acts = document.createElement("div");
@@ -890,36 +878,6 @@
     return row;
   }
 
-  function spotShort(s) {
-    if (s.scenario === "rfi") return s.hero;
-    if (s.scenario === "vsopen") return `${s.hero} vs ${s.vs}`;
-    if (s.scenario === "vs3bet") return `${s.hero} vs ${s.vs} 3bet`;
-    if (s.scenario === "vs4bet") return s.hero.replace("-", " vs ").toLowerCase();
-    if (s.scenario === "vs3betcold") return s.hero.replace("-", " vs ").toLowerCase();
-    if (s.scenario === "squeeze") return `${s.hero} vs ${s.vs}`;
-    return `${s.heroSeats.join("/")} ${s.limpers === "many" ? "2+" : "1"}`;
-  }
-
-  function spotName(s) {
-    if (s.scenario === "rfi") return `Open from ${s.hero}`;
-    if (s.scenario === "vsopen") return `${s.hero} vs ${s.vs}`;
-    if (s.scenario === "vs3bet") return `${s.hero} open, ${s.vs} 3-bets`;
-    if (s.scenario === "vs4bet") return `4-bet at you, ${s.hero.toLowerCase()}`;
-    if (s.scenario === "vs3betcold") return `Cold, ${s.hero.toLowerCase()}`;
-    if (s.scenario === "squeeze") return `Squeeze ${s.hero} vs ${s.vs}`;
-    return `${s.heroSeats.join("/")} vs ${s.limpers === "many" ? "2+ limpers" : "one limper"}`;
-  }
-
-  function spotTitle(s) {
-    if (s.scenario === "rfi") return `Opening from ${s.heroName}`;
-    if (s.scenario === "vsopen") return `${s.heroName} facing a raise from ${s.vsName}`;
-    if (s.scenario === "vs3bet") return `You opened from ${s.heroName}, 3-bet by ${s.vsName}`;
-    if (s.scenario === "vs4bet") return `You 3-bet ${s.heroName} and were 4-bet by ${s.vsName}`;
-    if (s.scenario === "vs3betcold") return `${s.heroName}, facing a 3-bet of ${s.vsName}`;
-    if (s.scenario === "squeeze") return `Squeezing ${s.heroName} against an open from ${s.vsName}`;
-    return `${s.heroName} facing ${s.limpers === "many" ? "two or more limpers" : "one limper"}`;
-  }
-
   function renderStats() {
     if (totals.n === 0) return;
     el("stats").hidden = false;
@@ -931,13 +889,15 @@
     el("s-streak").textContent = totals.streak;
     el("s-best").textContent = totals.best;
 
-    const byScenario = el("bars-scenario");
-    byScenario.replaceChildren();
-    for (const key of Object.keys(SCENARIOS)) {
-      const t = tally.get(key);
-      if (!t) continue;
-      byScenario.append(barRow(SCENARIOS[key].short, (100 * t.right) / t.n, t.n));
-    }
+    const fill = (target, rows) => {
+      target.replaceChildren();
+      for (const [name, key] of rows) {
+        const t = tally.get(key);
+        if (t) target.append(barRow(name, (100 * t.right) / t.n, t.n));
+      }
+    };
+    fill(el("bars-facing"), FACING_KEYS.map((k) => [FACING[k].label, k]));
+    fill(el("bars-seat"), SEAT_KEYS.map((k) => [k, "seat:" + k]));
 
     // Only spots with enough attempts to mean anything.
     const weak = [];
@@ -945,32 +905,48 @@
       const t = tally.get("spot:" + s.id);
       if (!t || t.n < 3) continue;
       const rate = (100 * t.right) / t.n;
-      if (rate < 100) weak.push({ name: spotName(s), rate, n: t.n });
+      if (rate < 100) weak.push({ name: spotShort(s), rate, n: t.n });
     }
     weak.sort((a, b) => a.rate - b.rate);
-    const weakWrap = el("weak-wrap");
+    el("weak-wrap").hidden = weak.length === 0;
     const bars = el("bars-weak");
     bars.replaceChildren();
-    weakWrap.hidden = weak.length === 0;
     for (const w of weak.slice(0, 5)) bars.append(barRow(w.name, w.rate, w.n));
   }
 
   // ---------- filters ----------
-  const scenarioSeg = el("scenario-seg");
-  for (const key of AVAILABLE) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.textContent = SCENARIOS[key].label;
-    b.setAttribute("aria-pressed", "true");
-    b.onclick = () => {
-      const on = b.getAttribute("aria-pressed") === "true";
-      if (on && enabled.length === 1) return; // never leave nothing to drill
-      b.setAttribute("aria-pressed", String(!on));
-      enabled = on ? enabled.filter((k) => k !== key) : [...enabled, key];
-      newHand();
-    };
-    scenarioSeg.append(b);
+  /** Never let the last button in a group be switched off - that deals nothing. */
+  function buildSeg(segId, keys, labelOf, isOn, toggle) {
+    const seg = el(segId);
+    seg.replaceChildren();
+    for (const key of keys) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = labelOf(key);
+      b.setAttribute("aria-pressed", String(isOn(key)));
+      b.onclick = () => {
+        const on = b.getAttribute("aria-pressed") === "true";
+        if (!toggle(key, !on)) return;
+        b.setAttribute("aria-pressed", String(!on));
+        newHand();
+      };
+      seg.append(b);
+    }
   }
+
+  buildSeg("facing-seg", FACING_KEYS, (k) => FACING[k].label, (k) => onFacing.includes(k), (k, want) => {
+    const next = want ? [...onFacing, k] : onFacing.filter((x) => x !== k);
+    if (!next.length || !SPOTS.some((s) => next.includes(s.facing) && onSeats.includes(s.seat))) return false;
+    onFacing = next;
+    return true;
+  });
+
+  buildSeg("seat-seg", SEAT_KEYS, (k) => k, (k) => onSeats.includes(k), (k, want) => {
+    const next = want ? [...onSeats, k] : onSeats.filter((x) => x !== k);
+    if (!next.length || !SPOTS.some((s) => onFacing.includes(s.facing) && next.includes(s.seat))) return false;
+    onSeats = next;
+    return true;
+  });
 
   el("reset").onclick = () => {
     tally.clear();
@@ -979,67 +955,55 @@
     newHand();
   };
 
+  el("reroll").onclick = () => {
+    if (!hand || answered) return;
+    hand.roll = roll100();
+    renderRoll(hand);
+  };
+
   // ---------- charts ----------
-  const firstIn = (key) => SPOTS.find((s) => s.scenario === key);
-
-  let chartScenario = AVAILABLE.includes("rfi") ? "rfi" : AVAILABLE[0] || null;
-  let chartSpotId = chartScenario ? firstIn(chartScenario).id : null;
-
-  const chartScenarioSeg = el("chart-scenario-seg");
-  for (const key of AVAILABLE) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.textContent = SCENARIOS[key].label;
-    b.setAttribute("aria-pressed", String(key === chartScenario));
-    b.onclick = () => {
-      chartScenario = key;
-      chartSpotId = firstIn(key).id;
-      syncChart();
-    };
-    chartScenarioSeg.append(b);
-  }
+  let chartSpotId = SPOTS.length ? SPOTS[0].id : null;
 
   function syncChart() {
     if (!chartSpotId) return;
-    for (const b of chartScenarioSeg.querySelectorAll("button")) {
-      b.setAttribute("aria-pressed", String(b.textContent === SCENARIOS[chartScenario].label));
-    }
-
-    const inScenario = SPOTS.filter((s) => s.scenario === chartScenario);
-    const spotSeg = el("chart-spot-seg");
-    spotSeg.replaceChildren();
-    for (const s of inScenario) {
+    const seg = el("chart-spot-seg");
+    seg.replaceChildren();
+    for (const s of SPOTS) {
       const b = document.createElement("button");
       b.type = "button";
       b.textContent = spotShort(s);
       b.setAttribute("aria-pressed", String(s.id === chartSpotId));
       b.onclick = () => { chartSpotId = s.id; syncChart(); };
-      spotSeg.append(b);
+      seg.append(b);
     }
 
     const s = SPOTS.find((x) => x.id === chartSpotId);
     el("chart-title").textContent = spotTitle(s);
     el("chart-pct").textContent = pctLine(s);
     renderGrid(el("chart-grid"), s, null);
-    renderLegend(el("chart-legend"), s,
-      s.checksRest ? "everything else checks" : "suited above the diagonal, offsuit below");
+    renderLegend(el("chart-legend"), s, "suited above the diagonal, offsuit below");
 
     const notation = el("chart-notation");
     notation.replaceChildren();
-    for (const action of Object.keys(s.notation)) {
-      if (!s.notation[action].length) continue;
-      const line = document.createElement("div");
+    const line = (title, text) => {
+      if (!text) return;
+      const wrap = document.createElement("div");
       const k = document.createElement("span");
       k.className = "kicker";
       k.style.display = "block";
-      k.textContent = actionLabel(s, action);
+      k.textContent = title;
       const v = document.createElement("p");
       v.className = "mono";
       v.style.cssText = "font-size:12.5px;color:var(--muted);margin:2px 0 0;line-height:1.7";
-      v.textContent = s.notation[action].join(", ");
-      line.append(k, v);
-      notation.append(line);
+      v.textContent = text;
+      wrap.append(k, v);
+      notation.append(wrap);
+    };
+    for (const action of ["raise", "call", "check"]) {
+      line(`Always ${action}`, (s.notation[action] || []).join(", "));
     }
+    const mixHands = Object.keys(s.bands).filter((h) => s.bands[h].length > 1);
+    line("By frequency", mixHands.map((h) => `${h} ${mixText(s, h)}`).join("  ·  "));
   }
 
   // ---------- tabs ----------
@@ -1058,10 +1022,11 @@
   // ---------- keyboard ----------
   document.addEventListener("keydown", (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (el("view-drill").hidden || !spot) return;
+    if (el("view-drill").hidden || !hand) return;
     const key = e.key.toLowerCase();
     if (!answered) {
-      for (const action of spot.spot.actions) {
+      if (key === "d") { e.preventDefault(); el("reroll").click(); return; }
+      for (const action of OPTIONS) {
         if (key === ACTION[action].key) { e.preventDefault(); answer(action); return; }
       }
     } else if (key === " " || key === "enter") {

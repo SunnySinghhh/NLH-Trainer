@@ -3,54 +3,69 @@
 Deprioritised, but worth doing. Each entry notes what it actually costs, so
 future-me does not underestimate it.
 
+## User-supplied ranges
+
+Let someone paste in their own ranges and drill those instead of the ones
+shipped here. The most valuable thing on this list, and the one that changes
+the architecture most.
+
+- The data model already fits: a spot is `(seat, facing)` with per-hand
+  frequencies, which is what every range tool exports.
+- **Input format** is the real decision. Options, cheapest first:
+  - the notation this repo already uses (`QQ+`, `A2s-A5s`, `TT: raise 50`);
+  - weighted strings from solver tools (`AA:1,AKs:1,A5s:0.25`), which is what
+    people will actually have on the clipboard;
+  - a clickable 13x13 grid, which is the nicest to use and the most work.
+- **Where it lives.** Ranges pasted into a page served from GitHub Pages have
+  nowhere to persist but the browser. `localStorage` per viewer is the honest
+  answer; anything shared needs a backend.
+- Needs an import/export round trip, or people will lose work they typed in.
+- The checks would have to become advisory rather than build-time: someone
+  else's ranges are allowed to disagree with the position ladder here.
+
 ## Opponent opening sizes
 
-Whatever open size the new ranges get written against needs **stating out loud**
-in the provenance panel. On the previous data set it was ~2.5bb, baked in and
-invisible to the user - someone drilling that and then sitting in a live game
-facing 5bb opens was being taught the wrong defence. Decide the size before
-writing the defending ranges, not after.
+Whatever open size the ranges are written against needs **stating out loud**,
+which the provenance panel now does (~2.5bb). Making it selectable is the next
+step: facing a bigger open you defend tighter, facing a min-raise much wider,
+and the effect is large enough to change whether marginal hands are calls at
+all.
 
-Facing a bigger open you defend **tighter** (worse price, deeper effective
-stack-to-pot); facing a min-raise you defend **much wider**. The effect is large
-enough to change whether marginal hands are calls at all.
+- Touches every non-RFI range - a multiplier on the ones that exist, not an
+  additive layer.
+- Realistic sizes: 2bb (online min-raise), 2.5bb (baseline), 3bb, 4bb+ (live).
+- Cheapest honest first step is to adjust the *calling* range only, since
+  raising ranges move less with size than calling ranges do.
 
-- Touches every `vsopen`, `vs3bet` and `squeeze` range — not an additive layer,
-  a multiplier on the ones that exist.
-- Realistic sizes to support: 2bb (online min-raise), 2.5bb (baseline, current),
-  3bb, 4bb+ (live).
-- Cheapest honest first step: state the 2.5bb assumption in the UI, then add a
-  size selector that adjusts the *calling* range only, since 3-bet ranges move
-  less with size than calling ranges do.
+## The small blind
 
-## Table size: 6-max
+Deliberately absent - the source simulation does not cover it. The seat already
+exists in `SEATS` and is skipped only because it is not in `TESTED_SEATS`, so
+adding it is purely a data job whenever ranges exist for it.
 
-A second full set of ranges. 6-max positions are UTG / HJ / CO / BTN / SB / BB,
-and every range is wider than its full-ring equivalent because there are fewer
-players left to act.
+## Other table sizes
 
-- Cannot be derived from the 9-max charts by dropping seats — the whole ladder
-  shifts.
-- Roughly doubles the range data (about 60 more spots at current coverage).
-- The app is already scenario-driven, so the UI cost is a game-type selector;
-  the cost is the data.
+Everything here is 8-handed. 6-max and 9-max are each a full second set of
+ranges; the ladder shifts rather than a seat being dropped, so they cannot be
+derived from these by adding or removing positions. The app is already
+data-driven, so the cost is the ranges, not the UI.
 
 ## Stack depths
 
-Everything here is **100bb**. Depth changes preflop strategy sharply:
+Everything is **100bb**.
 
-- **Short (30-50bb):** 4-bets become shoves, 3-bet-calling ranges collapse,
-  suited connectors lose value (no implied odds).
-- **Deep (200bb+):** more flatting, more suited playability, 4-bet bluffs get
-  riskier.
-- Another full set of ranges per depth, so this and 6-max multiply together.
+- **Short (30-50bb):** 4-bets become shoves, calling ranges collapse, suited
+  connectors lose their implied odds.
+- **Deep (200bb+):** more flatting, more suited playability, riskier 4-bet
+  bluffs.
+- Another full set of ranges per depth, and this multiplies with table size.
   Pick one axis at a time.
 
 ## Smaller things
 
-- **Straddles and antes** — common live, changes effective position and pot odds.
-- **Exact position pairs instead of buckets** — LJ vs UTG and LJ vs UTG+2 share
-  a chart today. More faithful, but ~150-250 ranges with no structural check on
-  most of them (see the note in README about why bucketing was chosen).
-- **Spaced repetition** — surface hands you have got wrong before more often,
+- **Straddles and antes** - common live, changes effective position and pot odds.
+- **Spaced repetition** - surface hands you have got wrong before more often,
   rather than uniform random.
+- **Persist session stats** across reloads, which today reset with the page.
+- **Track roll-spot accuracy separately.** Mixed hands are the hardest part and
+  are currently pooled with the rest in the stats.
