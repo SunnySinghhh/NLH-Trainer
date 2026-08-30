@@ -83,10 +83,11 @@ for (const s of SPOTS) {
   if (played(s) > 100.0001) fail(`${s.id} plays ${played(s).toFixed(1)}% of hands`);
 }
 
-console.log("5. aces are never folded and are mostly raised");
+console.log("5. aces are always played, never folded");
 for (const s of SPOTS) {
-  const raise = weightOf(s, "AA", "raise");
-  if (raise < 50) fail(`${s.id} raises AA only ${raise}% of the time`);
+  const spread = s.weights["AA"] || {};
+  const total = Object.values(spread).reduce((sum, pct) => sum + pct, 0);
+  if (total < 99.999) fail(`${s.id} folds AA ${(100 - total).toFixed(0)}% of the time`);
 }
 
 console.log("6. only the seats being tested have ranges");
