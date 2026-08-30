@@ -125,20 +125,23 @@ for (let i = 1; i < LIMP_ORDER.length; i++) {
   }
 }
 
-console.log("10. only the small blind can complete when the action folds to it");
+console.log("10. coming in for the minimum is offered only where it is defensible");
+// The small blind completes; UTG+2 through the cutoff may limp (a live line,
+// flagged as such). Under the gun, UTG+1 and the button stay raise-or-fold.
+const MAY_COME_IN = ["UTG+2", "LJ", "HJ", "CO", "SB"];
 for (const s of SPOTS.filter((x) => x.scenario === "rfi")) {
   const hasCall = s.actions.includes("call");
-  if (s.hero === "SB" && !hasCall) fail("the small blind cannot complete");
-  if (s.hero !== "SB" && hasCall) fail(`${s.hero} is offered an open-limp`);
+  const allowed = MAY_COME_IN.includes(s.hero);
+  if (allowed && !hasCall) fail(`${s.hero} has no limp or complete`);
+  if (!allowed && hasCall) fail(`${s.hero} is offered an open-limp, which it should not be`);
 }
 
-console.log("11. the small blind completes hands it is not already opening");
-const sbOpen = spot("rfi-SB");
-if (sbOpen.sets.call) {
-  const total = pct(sbOpen, "raise") + pct(sbOpen, "call");
-  if (total > 70) fail(`the small blind plays ${total.toFixed(1)}% of hands, which is too many`);
-  if (pct(sbOpen, "call") >= pct(sbOpen, "raise")) {
-    fail(`the small blind completes ${pct(sbOpen, "call").toFixed(1)}% but only raises ${pct(sbOpen, "raise").toFixed(1)}%`);
+console.log("11. limping is a smaller range than raising, and does not balloon the total");
+for (const s of SPOTS.filter((x) => x.scenario === "rfi" && x.sets.call)) {
+  const total = pct(s, "raise") + pct(s, "call");
+  if (total > 60) fail(`${s.hero} plays ${total.toFixed(1)}% of hands, which is too many`);
+  if (pct(s, "call") >= pct(s, "raise")) {
+    fail(`${s.hero} limps ${pct(s, "call").toFixed(1)}% but raises only ${pct(s, "raise").toFixed(1)}%`);
   }
 }
 
@@ -214,6 +217,42 @@ for (const bucket of ["EP", "MP", "BTN", "SB", "BB"]) {
   }
 }
 
+console.log("18. facing a cold 3-bet, almost everything folds");
+for (const s of SPOTS.filter((x) => x.scenario === "vs3betcold")) {
+  if (played(s) > 6) fail(`${s.id} continues ${played(s).toFixed(1)}%, far too wide for a cold spot`);
+}
+
+console.log("19. a cold 4-bet is tighter than 3-betting the same open yourself");
+for (const s of SPOTS.filter((x) => x.scenario === "vs3betcold")) {
+  const heads = SPOTS.filter(
+    (o) => o.scenario === "vsopen" && o.vs === s.vs && s.heroSeats.includes(o.hero),
+  );
+  if (!heads.length) continue;
+  const widest = Math.max(...heads.map((o) => pct(o, "threebet")));
+  if (pct(s, "fourbet") > widest) {
+    fail(
+      `${s.id} cold 4-bets ${pct(s, "fourbet").toFixed(1)}% but only 3-bets ` +
+        `${widest.toFixed(1)}% against the same open with nobody else in`,
+    );
+  }
+}
+
+console.log("20. position matters in a cold spot, and a wider 3-bettor is called wider");
+for (const opener of ["EP", "MP"]) {
+  const ip = spot(`vs3betcold-IP-${opener}`);
+  const blinds = spot(`vs3betcold-BLINDS-${opener}`);
+  if (ip && blinds && played(ip) <= played(blinds)) {
+    fail(`vs a ${opener} open 3-bet: in position continues ${played(ip).toFixed(1)}%, blinds ${played(blinds).toFixed(1)}%`);
+  }
+}
+for (const where of ["IP", "BLINDS"]) {
+  const early = spot(`vs3betcold-${where}-EP`);
+  const middle = spot(`vs3betcold-${where}-MP`);
+  if (early && middle && played(middle) <= played(early)) {
+    fail(`${where} continues ${played(middle).toFixed(1)}% vs a middle-position 3-bet but ${played(early).toFixed(1)}% vs an early one`);
+  }
+}
+
 // ---------------------------------------------------------------------------
 
 const NAMES = { raise: "raise", threebet: "3-bet", call: "call", check: "check" };
@@ -261,6 +300,18 @@ for (const s of SPOTS.filter((x) => x.scenario === "vs3bet")) {
     s.hero.padEnd(8),
     s.vs.padEnd(11),
     pct(s, "fourbet").toFixed(1).padStart(6),
+    pct(s, "call").toFixed(1).padStart(7),
+    played(s).toFixed(1).padStart(8),
+  );
+}
+
+console.log("\n--- it got 3-bet before it reached you ---");
+console.log("you          vs open   cold4bet%   call%   total%");
+for (const s of SPOTS.filter((x) => x.scenario === "vs3betcold")) {
+  console.log(
+    s.hero.padEnd(12),
+    s.vs.padEnd(9),
+    pct(s, "fourbet").toFixed(1).padStart(9),
     pct(s, "call").toFixed(1).padStart(7),
     played(s).toFixed(1).padStart(8),
   );

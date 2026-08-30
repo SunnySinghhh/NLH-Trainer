@@ -7,14 +7,24 @@ Three scenarios, 32 spots:
 
 | Scenario | Your actions | Spots |
 |---|---|---|
-| It folds to you | Raise / Fold — plus **Complete** in the small blind | 8 |
+| It folds to you | Raise / Fold, plus **Complete** (SB) or **Limp** (UTG+2–CO) | 8 |
 | Opened to you | 3-Bet / Call / Fold | 19 |
+| 3-bet before it reached you | Cold 4-Bet / Call / Fold | 4 |
 | You opened, they 3-bet | 4-Bet / Call / Fold | 12 |
 | You 3-bet, they 4-bet | Shove / Call / Fold | 4 |
 | Open plus a caller | Squeeze / Call / Fold | 9 |
 | Limped to you (1 or 2+) | Isolate / Overlimp / Fold — **Check** in the big blind | 10 |
 
-**62 spots in total.**
+**66 spots in total**, checked by 20 structural assertions on every build.
+
+### One deliberate departure from standard charts
+
+UTG+2 through the cutoff have an **open-limping** range. Standard charts are
+raise-or-fold from every seat except the small blind, and a solver would almost
+never open-limp — this is a live-game line, added on request, and it changes the
+right answer for a lot of speculative hands. The small blind *completing* is a
+different thing and is standard. Under the gun, UTG+1 and the button stay
+raise-or-fold.
 | Someone raises ahead of you | 3-Bet / Call / Fold |
 | Someone limps ahead of you | Raise / Call / Fold — or Raise / **Check** in the big blind |
 

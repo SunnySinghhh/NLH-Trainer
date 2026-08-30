@@ -255,9 +255,9 @@
       <span class="kicker">9-max full ring &middot; 100bb</span>
       <h1>Preflop Range Trainer</h1>
       <p class="sub">
-        Six spots across the whole preflop tree: it folds to you, someone raises,
-        you get 3-bet, you get 4-bet, someone squeezes behind an open, or the pot
-        is limped. Then see exactly where your hand sat in the range.
+        The whole preflop tree: it folds to you, someone raises, it is 3-bet
+        before it reaches you, you get 3-bet or 4-bet yourself, someone opens and
+        gets called, or the pot is limped. Then see exactly where your hand sat.
       </p>
     </div>
     <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
@@ -371,6 +371,14 @@
       squeezes and multiway limped pots &mdash; a middle position was taken.
     </p>
     <p>
+      <b>One deliberate departure:</b> UTG+2 through the cutoff are given an
+      open-limping range. Standard charts are raise-or-fold from every seat but
+      the small blind, and a solver would almost never open-limp &mdash; this is
+      a live-game line, included on request. It changes the right answer for a
+      lot of speculative hands. The small blind <i>completing</i> is different:
+      that one is standard.
+    </p>
+    <p>
       <b>Assumptions baked in:</b> 9-max full ring, 100bb effective, a standard
       <b>~2.5bb open</b>, and no ante or straddle. Facing much larger opens you
       should defend tighter than this; facing min-raises, wider.
@@ -379,8 +387,8 @@
       exact pairing separately.
     </p>
     <p>
-      <b>What is actually verified:</b> 17 structural checks run over all
-      <span id="spot-count">62</span> spots on every build. No hand is ever given
+      <b>What is actually verified:</b> 20 structural checks run over all
+      <span id="spot-count">66</span> spots on every build. No hand is ever given
       two actions; ranges widen with position; defence widens against later
       raises; the big blind defends wider than the small blind and never folds to
       a limp; 4-bets are far tighter than the opens that invite them; squeezes
@@ -433,6 +441,7 @@
     rfi:     { label: "Folded to you", short: "Folded to you" },
     vsopen:  { label: "Opened to you", short: "Facing a raise" },
     vs3bet:  { label: "You open, 3-bet", short: "Facing a 3-bet" },
+    vs3betcold: { label: "3-bet before you", short: "Cold 4-bet spot" },
     vs4bet:  { label: "You 3-bet, 4-bet", short: "Facing a 4-bet" },
     squeeze: { label: "Open + caller", short: "Squeeze" },
     vslimp:  { label: "Limped to you", short: "Facing a limp" },
@@ -635,6 +644,19 @@
       const candidates = (FOURBET_SEATS[chosen.hero] || NON_BLIND)
         .filter((x) => SEATS.indexOf(x) < SEATS.indexOf(heroSeat));
       villainSeat = candidates.length ? pick(candidates) : "CO";
+    } else if (chosen.scenario === "vs3betcold") {
+      // Someone opened, someone after them 3-bet, and it is on you cold.
+      const openerPool = (SQUEEZE_SEATS[chosen.vs] || [])
+        .filter((x) => SEATS.indexOf(x) < SEATS.indexOf(heroSeat) - 1);
+      callerSeat = openerPool.length ? pick(openerPool) : null;
+      const threePool = callerSeat
+        ? SEATS.filter(
+            (x) => SEATS.indexOf(x) > SEATS.indexOf(callerSeat)
+              && SEATS.indexOf(x) < SEATS.indexOf(heroSeat)
+              && NON_BLIND.includes(x),
+          )
+        : [];
+      villainSeat = threePool.length ? pick(threePool) : null;
     } else if (chosen.scenario === "squeeze") {
       const openers = (SQUEEZE_SEATS[chosen.vs] || [])
         .filter((x) => SEATS.indexOf(x) < SEATS.indexOf(heroSeat));
@@ -688,6 +710,12 @@
     if (state.spot.scenario === "vs4bet") {
       return `<b>${state.villainSeat}</b> opens, you 3-bet <b>${phrase}</b>, `
         + `and they 4-bet.`;
+    }
+    if (state.spot.scenario === "vs3betcold") {
+      const opener = state.callerSeat ? `<b>${state.callerSeat}</b>` : "an early player";
+      const three = state.villainSeat ? `<b>${state.villainSeat}</b>` : "someone behind them";
+      return `${opener} raises and ${three} 3-bets. It is on you cold, `
+        + `<b>${phrase}</b>, with nothing yet invested.`;
     }
     if (state.spot.scenario === "squeeze") {
       const caller = state.callerSeat ? `<b>${state.callerSeat}</b> calls` : "another player calls";
@@ -816,6 +844,7 @@
     if (s.scenario === "vsopen") return `${s.hero} vs ${s.vs}`;
     if (s.scenario === "vs3bet") return `${s.hero} vs ${s.vs} 3bet`;
     if (s.scenario === "vs4bet") return s.hero.replace("-", " vs ").toLowerCase();
+    if (s.scenario === "vs3betcold") return s.hero.replace("-", " vs ").toLowerCase();
     if (s.scenario === "squeeze") return `${s.hero} vs ${s.vs}`;
     return `${s.heroSeats.join("/")} ${s.limpers === "many" ? "2+" : "1"}`;
   }
@@ -825,6 +854,7 @@
     if (s.scenario === "vsopen") return `${s.hero} vs ${s.vs}`;
     if (s.scenario === "vs3bet") return `${s.hero} open, ${s.vs} 3-bets`;
     if (s.scenario === "vs4bet") return `4-bet at you, ${s.hero.toLowerCase()}`;
+    if (s.scenario === "vs3betcold") return `Cold, ${s.hero.toLowerCase()}`;
     if (s.scenario === "squeeze") return `Squeeze ${s.hero} vs ${s.vs}`;
     return `${s.heroSeats.join("/")} vs ${s.limpers === "many" ? "2+ limpers" : "one limper"}`;
   }
@@ -834,6 +864,7 @@
     if (s.scenario === "vsopen") return `${s.heroName} facing a raise from ${s.vsName}`;
     if (s.scenario === "vs3bet") return `You opened from ${s.heroName}, 3-bet by ${s.vsName}`;
     if (s.scenario === "vs4bet") return `You 3-bet ${s.heroName} and were 4-bet by ${s.vsName}`;
+    if (s.scenario === "vs3betcold") return `${s.heroName}, facing a 3-bet of ${s.vsName}`;
     if (s.scenario === "squeeze") return `Squeezing ${s.heroName} against an open from ${s.vsName}`;
     return `${s.heroName} facing ${s.limpers === "many" ? "two or more limpers" : "one limper"}`;
   }

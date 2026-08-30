@@ -105,22 +105,51 @@ const BUCKETS = {
 };
 
 // ---------------------------------------------------------------------------
-// 1. Folded to you — open, or fold.
+// 1. Folded to you — open, fold, or come in for the minimum.
 //
-//    Only the small blind gets a third option. It can complete for half a big
-//    blind and close the action against one player, which is a price no other
-//    seat is offered: everyone else calling here would be open-limping into a
-//    field with players still to act, and that is not part of these charts.
+//    The small blind can COMPLETE: half a big blind to close the action against
+//    one player, a price no other seat is offered. That much is standard.
+//
+//    UTG+2 through the cutoff can also LIMP. This is a live-game line, not part
+//    of the standard baseline — most charts are raise-or-fold from every seat
+//    except the small blind, and a solver would almost never open-limp. It is
+//    here because it is what actually happens in live full ring, and because
+//    knowing which speculative hands are worth a cheap look is useful. The
+//    ranges are the hands just below each seat's raising threshold that play
+//    well multiway.
+//
+//    Under the gun, UTG+1 and the button stay raise-or-fold: the first two
+//    because limping into eight players behind is indefensible even live, the
+//    button because with position and only the blinds left you would simply
+//    raise.
 // ---------------------------------------------------------------------------
 
 const RFI = {
   UTG: { raise: ["66+", "ATs+", "KTs+", "QJs", "JTs", "AJo+"] },
   "UTG+1": { raise: ["55+", "A9s+", "KTs+", "QTs+", "JTs", "T9s", "AJo+", "KQo"] },
-  "UTG+2": { raise: ["44+", "A8s+", "K9s+", "Q9s+", "J9s+", "T9s", "98s", "ATo+", "KQo"] },
-  LJ: { raise: ["33+", "A7s+", "A5s", "K9s+", "Q9s+", "J9s+", "T8s+", "98s", "87s", "ATo+", "KJo+"] },
-  HJ: { raise: ["22+", "A2s+", "K8s+", "Q8s+", "J8s+", "T8s+", "97s+", "87s", "ATo+", "KJo+", "QJo"] },
-  CO: { raise: ["22+", "A2s+", "K5s+", "Q8s+", "J8s+", "T7s+", "96s+", "86s+", "75s+", "65s",
-                "A9o+", "KTo+", "QTo+", "JTo"] },
+  "UTG+2": {
+    raise: ["44+", "A8s+", "K9s+", "Q9s+", "J9s+", "T9s", "98s", "ATo+", "KQo"],
+    call: ["22-33", "A2s-A7s", "K7s-K8s", "Q7s-Q8s", "J7s-J8s", "T8s", "87s", "76s", "65s"],
+    labels: { call: "Limp" },
+  },
+  LJ: {
+    raise: ["33+", "A7s+", "A5s", "K9s+", "Q9s+", "J9s+", "T8s+", "98s", "87s", "ATo+", "KJo+"],
+    call: ["22", "A2s-A4s", "A6s", "K7s-K8s", "Q7s-Q8s", "J7s-J8s", "T7s", "76s", "65s", "54s"],
+    labels: { call: "Limp" },
+  },
+  HJ: {
+    raise: ["22+", "A2s+", "K8s+", "Q8s+", "J8s+", "T8s+", "97s+", "87s", "ATo+", "KJo+", "QJo"],
+    call: ["K5s-K7s", "Q6s-Q7s", "J6s-J7s", "T6s-T7s", "96s", "86s", "76s", "65s", "54s",
+           "QTo", "JTo"],
+    labels: { call: "Limp" },
+  },
+  CO: {
+    raise: ["22+", "A2s+", "K5s+", "Q8s+", "J8s+", "T7s+", "96s+", "86s+", "75s+", "65s",
+            "A9o+", "KTo+", "QTo+", "JTo"],
+    call: ["K2s-K4s", "Q5s-Q7s", "J5s-J7s", "T5s-T6s", "95s", "85s", "74s", "64s", "54s", "43s",
+           "A5o-A8o", "K9o", "Q9o", "J9o", "T9o"],
+    labels: { call: "Limp" },
+  },
   BTN: { raise: ["22+", "A2s+", "K2s+", "Q4s+", "J6s+", "T6s+", "95s+", "85s+", "74s+", "64s+",
                  "53s+", "43s", "A2o+", "K8o+", "Q9o+", "J9o+", "T9o", "98o"] },
   SB: {
@@ -357,6 +386,53 @@ const VS_4BET = {
 };
 
 // ---------------------------------------------------------------------------
+// 5b. It got 3-bet before it reached you — cold 4-bet, cold call, or fold.
+//     Distinct from spot 4: there you had already opened and had money and
+//     range invested. Here you have nothing in the pot and are looking at two
+//     opponents, one of whom has shown real strength and one who has not yet
+//     acted again. It is the tightest continuing range in the game outside
+//     facing a 4-bet, and cold-calling is the part most players overdo.
+//
+//     Split by whether the original raise came from early or middle position,
+//     because that governs how wide the 3-bettor can credibly be.
+// ---------------------------------------------------------------------------
+
+const COLD_3BET = {
+  "IP-EP": {
+    heroLabel: "in position",
+    heroSeats: ["CO", "BTN"],
+    opener: "EP",
+    vsLabel: "an early position open",
+    fourbet: ["QQ+", "AKs"],
+    call: ["TT-JJ", "AQs", "AKo"],
+  },
+  "IP-MP": {
+    heroLabel: "in position",
+    heroSeats: ["BTN"],
+    opener: "MP",
+    vsLabel: "a middle position open",
+    fourbet: ["JJ+", "AKs", "AKo"],
+    call: ["99-TT", "AQs", "AJs", "KQs"],
+  },
+  "BLINDS-EP": {
+    heroLabel: "in the blinds",
+    heroSeats: ["SB", "BB"],
+    opener: "EP",
+    vsLabel: "an early position open",
+    fourbet: ["QQ+", "AKs"],
+    call: ["JJ", "AKo"],
+  },
+  "BLINDS-MP": {
+    heroLabel: "in the blinds",
+    heroSeats: ["SB", "BB"],
+    opener: "MP",
+    vsLabel: "a middle position open",
+    fourbet: ["JJ+", "AKs", "AKo"],
+    call: ["TT", "AQs"],
+  },
+};
+
+// ---------------------------------------------------------------------------
 // 6. Someone opened and someone else called — squeeze, call, or fold.
 //    Always tighter than 3-betting the same opener heads-up: there is a second
 //    player already committed, so bluffs get through less often and the caller's
@@ -523,6 +599,24 @@ function buildSpots() {
     });
   }
 
+  for (const key of Object.keys(COLD_3BET)) {
+    const entry = COLD_3BET[key];
+    const last = entry.heroSeats[entry.heroSeats.length - 1];
+    spots.push({
+      id: `vs3betcold-${key}`,
+      scenario: "vs3betcold",
+      hero: key,
+      heroSeats: entry.heroSeats,
+      heroName: entry.heroLabel,
+      behind: behindCount(last),
+      vs: entry.opener,
+      vsName: entry.vsLabel,
+      notation: { fourbet: entry.fourbet, call: entry.call },
+      sets: { fourbet: expand(entry.fourbet), call: expand(entry.call) },
+      actions: ["fourbet", "call", "fold"],
+    });
+  }
+
   for (const bucket of Object.keys(SQUEEZE)) {
     const group = SQUEEZE[bucket];
     for (const opener of Object.keys(SQUEEZE_OPENER)) {
@@ -551,6 +645,6 @@ const SPOTS = buildSpots();
 
 module.exports = {
   RANKS, SEATS, SEAT_NAMES, BUCKETS, THREEBETTER, SQUEEZE_OPENER,
-  RFI, VS_OPEN, VS_LIMP, VS_3BET, VS_4BET, SQUEEZE, SPOTS,
+  RFI, VS_OPEN, VS_LIMP, VS_3BET, VS_4BET, COLD_3BET, SQUEEZE, SPOTS,
   expand, expandToken, combosOf, percentOf,
 };
