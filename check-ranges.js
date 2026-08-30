@@ -217,6 +217,19 @@ for (const bucket of ["EP", "MP", "BTN", "SB", "BB"]) {
   }
 }
 
+console.log("17b. facing a cold 4-bet as the opener, you continue tighter still");
+for (const [cold, own] of [["OPENER-EARLY", "IP-EARLY"], ["OPENER-LATE", "IP-LATE"]]) {
+  const a = spot(`vs4bet-${cold}`);
+  const b = spot(`vs4bet-${own}`);
+  if (!a || !b) continue;
+  if (played(a) >= played(b)) {
+    fail(
+      `${cold} continues ${played(a).toFixed(1)}% against a cold 4-bet but ` +
+        `${own} continues ${played(b).toFixed(1)}% against a 4-bet defending its own open`,
+    );
+  }
+}
+
 console.log("18. facing a cold 3-bet, almost everything folds");
 for (const s of SPOTS.filter((x) => x.scenario === "vs3betcold")) {
   if (played(s) > 6) fail(`${s.id} continues ${played(s).toFixed(1)}%, far too wide for a cold spot`);

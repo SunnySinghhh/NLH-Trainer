@@ -387,8 +387,8 @@
       exact pairing separately.
     </p>
     <p>
-      <b>What is actually verified:</b> 20 structural checks run over all
-      <span id="spot-count">66</span> spots on every build. No hand is ever given
+      <b>What is actually verified:</b> 21 structural checks run over all
+      <span id="spot-count">68</span> spots on every build. No hand is ever given
       two actions; ranges widen with position; defence widens against later
       raises; the big blind defends wider than the small blind and never folds to
       a limp; 4-bets are far tighter than the opens that invite them; squeezes
@@ -639,6 +639,14 @@
         const candidates = after(heroSeat).filter((x) => NON_BLIND.includes(x));
         villainSeat = candidates.length ? pick(candidates) : "BTN";
       }
+    } else if (chosen.scenario === "vs4bet" && chosen.cold) {
+      // You opened. Someone behind you 3-bet, and a third player 4-bet.
+      const threePool = after(heroSeat).filter(
+        (x) => SEATS.indexOf(x) < SEATS.length - 1,
+      );
+      callerSeat = threePool.length ? threePool[Math.floor(Math.random() * (threePool.length - 1))] : null;
+      const fourPool = callerSeat ? after(callerSeat) : [];
+      villainSeat = fourPool.length ? pick(fourPool) : null;
     } else if (chosen.scenario === "vs4bet") {
       // You 3-bet; the original raiser came over the top.
       const candidates = (FOURBET_SEATS[chosen.hero] || NON_BLIND)
@@ -706,6 +714,12 @@
     if (state.spot.scenario === "vs3bet") {
       return `You open from <b>${state.heroSeat}</b> and <b>${state.villainSeat}</b> `
         + `3-bets (${state.spot.vsName}).`;
+    }
+    if (state.spot.scenario === "vs4bet" && state.spot.cold) {
+      const three = state.callerSeat ? `<b>${state.callerSeat}</b>` : "a player behind you";
+      const four = state.villainSeat ? `<b>${state.villainSeat}</b>` : "a third player";
+      return `You open <b>${phrase}</b>. ${three} 3-bets and ${four} cold 4-bets. `
+        + `Back to you, and the 3-bettor still has a decision behind you.`;
     }
     if (state.spot.scenario === "vs4bet") {
       return `<b>${state.villainSeat}</b> opens, you 3-bet <b>${phrase}</b>, `

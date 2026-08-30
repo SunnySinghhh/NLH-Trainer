@@ -42,6 +42,7 @@ const payload = {
       actions: s.actions,
       labels: s.labels || null,
       checksRest: Boolean(s.checksRest),
+      cold: Boolean(s.cold),
       assign,
       pct,
       notation: s.notation,

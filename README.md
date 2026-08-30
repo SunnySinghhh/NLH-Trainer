@@ -11,11 +11,11 @@ Three scenarios, 32 spots:
 | Opened to you | 3-Bet / Call / Fold | 19 |
 | 3-bet before it reached you | Cold 4-Bet / Call / Fold | 4 |
 | You opened, they 3-bet | 4-Bet / Call / Fold | 12 |
-| You 3-bet, they 4-bet | Shove / Call / Fold | 4 |
+| Facing a 4-bet | Shove / Call / Fold — you 3-bet, **or** you opened and got cold 4-bet | 6 |
 | Open plus a caller | Squeeze / Call / Fold | 9 |
 | Limped to you (1 or 2+) | Isolate / Overlimp / Fold — **Check** in the big blind | 10 |
 
-**66 spots in total**, checked by 20 structural assertions on every build.
+**68 spots in total**, checked by 21 structural assertions on every build.
 
 ### One deliberate departure from standard charts
 

@@ -383,6 +383,27 @@ const VS_4BET = {
     fivebet: ["AA", "KK", "AKs", "A5s"],
     call: ["JJ", "QQ", "AKo", "AQs"],
   },
+
+  // You never 3-bet at all: you opened, someone 3-bet behind you, and a third
+  // player cold 4-bet. Tighter than the spots above, because a cold 4-bet is a
+  // stronger range than a 4-bet defending its own open, and because the 3-bettor
+  // still has a decision left behind you.
+  "OPENER-EARLY": {
+    heroLabel: "as an early or middle position opener",
+    heroSeats: ["UTG", "UTG+1", "UTG+2", "LJ", "HJ"],
+    vsLabel: "a cold 4-bet behind you",
+    cold: true,
+    fivebet: ["AA", "KK"],
+    call: ["QQ", "AKs"],
+  },
+  "OPENER-LATE": {
+    heroLabel: "as a late position opener",
+    heroSeats: ["CO", "BTN"],
+    vsLabel: "a cold 4-bet behind you",
+    cold: true,
+    fivebet: ["AA", "KK", "AKs"],
+    call: ["QQ", "AKo"],
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -593,6 +614,7 @@ function buildSpots() {
       behind: behindCount(entry.heroSeats[entry.heroSeats.length - 1]),
       vs: key,
       vsName: entry.vsLabel,
+      cold: Boolean(entry.cold),
       notation: { fivebet: entry.fivebet, call: entry.call },
       sets: { fivebet: expand(entry.fivebet), call: expand(entry.call) },
       actions: ["fivebet", "call", "fold"],
