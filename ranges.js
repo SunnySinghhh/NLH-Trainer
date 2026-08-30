@@ -1,8 +1,13 @@
 /**
- * Preflop range data — the single source of truth.
+ * Preflop range data - the single source of truth.
  *
- * `build.js` expands this and injects it into the page, so the trainer can
- * never drill something different from what `check-ranges.js` validates.
+ * Every table below is EMPTY on purpose. The machinery around them is intact:
+ * the notation expander, the seat and bucket definitions, and buildSpots(),
+ * which turns filled-in tables into the spot list the page drills. Fill a table
+ * and the spots appear; leave it empty and that scenario simply does not exist.
+ *
+ * `build.js` injects whatever is here into the page, so the trainer can never
+ * drill something different from what `check-ranges.js` validates.
  *
  * Notation:
  *   "66+"       every pocket pair from sixes up
@@ -11,9 +16,6 @@
  *   "A2s-A5s"   A2s through A5s
  *   "AJo+"      AJo, AQo, AKo
  *   "T9s"       exactly that hand
- *
- * These are a consensus teaching baseline for 9-max cash at 100bb, not solver
- * output. The app says so too.
  */
 
 const RANKS = "23456789TJQKA";
@@ -105,398 +107,132 @@ const BUCKETS = {
 };
 
 // ---------------------------------------------------------------------------
-// 1. Folded to you — open, fold, or come in for the minimum.
+// The range tables. All empty - fill in what you want to drill.
 //
-//    The small blind can COMPLETE: half a big blind to close the action against
-//    one player, a price no other seat is offered. That much is standard.
-//
-//    UTG+2 through the cutoff can also LIMP. This is a live-game line, not part
-//    of the standard baseline — most charts are raise-or-fold from every seat
-//    except the small blind, and a solver would almost never open-limp. It is
-//    here because it is what actually happens in live full ring, and because
-//    knowing which speculative hands are worth a cheap look is useful. The
-//    ranges are the hands just below each seat's raising threshold that play
-//    well multiway.
-//
-//    Under the gun, UTG+1 and the button stay raise-or-fold: the first two
-//    because limping into eight players behind is indefensible even live, the
-//    button because with position and only the blinds left you would simply
-//    raise.
+// Actions are named by what they are, not by button order. An action key maps
+// to a list of notation tokens; every hand not named anywhere in a spot folds
+// (or checks, in the one spot where folding is not an option).
 // ---------------------------------------------------------------------------
 
-const RFI = {
-  UTG: { raise: ["66+", "ATs+", "KTs+", "QJs", "JTs", "AJo+"] },
-  "UTG+1": { raise: ["55+", "A9s+", "KTs+", "QTs+", "JTs", "T9s", "AJo+", "KQo"] },
-  "UTG+2": {
-    raise: ["44+", "A8s+", "K9s+", "Q9s+", "J9s+", "T9s", "98s", "ATo+", "KQo"],
-    call: ["22-33", "A2s-A7s", "K7s-K8s", "Q7s-Q8s", "J7s-J8s", "T8s", "87s", "76s", "65s"],
-    labels: { call: "Limp" },
-  },
-  LJ: {
-    raise: ["33+", "A7s+", "A5s", "K9s+", "Q9s+", "J9s+", "T8s+", "98s", "87s", "ATo+", "KJo+"],
-    call: ["22", "A2s-A4s", "A6s", "K7s-K8s", "Q7s-Q8s", "J7s-J8s", "T7s", "76s", "65s", "54s"],
-    labels: { call: "Limp" },
-  },
-  HJ: {
-    raise: ["22+", "A2s+", "K8s+", "Q8s+", "J8s+", "T8s+", "97s+", "87s", "ATo+", "KJo+", "QJo"],
-    call: ["K5s-K7s", "Q6s-Q7s", "J6s-J7s", "T6s-T7s", "96s", "86s", "76s", "65s", "54s",
-           "QTo", "JTo"],
-    labels: { call: "Limp" },
-  },
-  CO: {
-    raise: ["22+", "A2s+", "K5s+", "Q8s+", "J8s+", "T7s+", "96s+", "86s+", "75s+", "65s",
-            "A9o+", "KTo+", "QTo+", "JTo"],
-    call: ["K2s-K4s", "Q5s-Q7s", "J5s-J7s", "T5s-T6s", "95s", "85s", "74s", "64s", "54s", "43s",
-           "A5o-A8o", "K9o", "Q9o", "J9o", "T9o"],
-    labels: { call: "Limp" },
-  },
-  BTN: { raise: ["22+", "A2s+", "K2s+", "Q4s+", "J6s+", "T6s+", "95s+", "85s+", "74s+", "64s+",
-                 "53s+", "43s", "A2o+", "K8o+", "Q9o+", "J9o+", "T9o", "98o"] },
-  SB: {
-    raise: ["22+", "A2s+", "K2s+", "Q5s+", "J7s+", "T7s+", "96s+", "86s+", "75s+", "65s", "54s",
-            "A2o+", "K9o+", "Q9o+", "J9o+", "T9o"],
-    // Getting 2 to 1 with only the big blind left to act, these are playable
-    // for half a blind but not strong enough to open.
-    call: ["Q2s-Q4s", "J2s-J6s", "T5s-T6s", "94s-95s", "84s-85s", "73s-74s", "63s-64s",
-           "52s-53s", "43s", "K5o-K8o", "Q7o-Q8o", "J7o-J8o", "T8o", "98o", "87o"],
-    labels: { call: "Complete" },
-  },
-};
+/**
+ * 1. Folded to you - open, fold, or come in for the minimum.
+ *
+ *   SEAT: {
+ *     raise:   [tokens],
+ *     call:    [tokens],              // optional: limp, or complete in the SB
+ *     labels:  { call: "Limp" },      // optional: what to call the action
+ *   }
+ *
+ * Keyed by exact seat, since every seat opens differently.
+ */
+const RFI = {};
 
-// ---------------------------------------------------------------------------
-// 2. Opened to you — 3-bet, call, or fold.
-//    Keyed by your seat, then by the bucket the raise came from. Defence widens
-//    as the opener's position gets later; the big blind is widest of all,
-//    because it closes the action at a discount.
-// ---------------------------------------------------------------------------
+/**
+ * 2. Someone raised and it is on you - 3-bet, call, or fold.
+ *
+ *   HERO_SEAT: {
+ *     OPENER_BUCKET: { threebet: [tokens], call: [tokens] },
+ *   }
+ *
+ * Opener bucket is a key of BUCKETS. Only buckets that act before the hero
+ * seat make sense.
+ */
+const VS_OPEN = {};
 
-const VS_OPEN = {
-  "UTG+1": {
-    EP: { threebet: ["QQ+", "AKs", "AKo"], call: ["99-JJ", "AQs", "AJs", "KQs"] },
-  },
-  "UTG+2": {
-    EP: { threebet: ["QQ+", "AKs", "AKo"], call: ["99-JJ", "AQs", "AJs", "KQs"] },
-  },
-  LJ: {
-    EP: { threebet: ["QQ+", "AKs", "AKo"], call: ["88-JJ", "AQs", "AJs", "KQs", "QJs"] },
-  },
-  HJ: {
-    EP: { threebet: ["QQ+", "AKs", "AKo"],
-          call: ["88-JJ", "AQs", "AJs", "ATs", "KQs", "KJs", "QJs"] },
-    MP: { threebet: ["JJ+", "AKs", "AKo", "AQs"],
-          call: ["88-TT", "AJs", "ATs", "KQs", "KJs", "QJs", "JTs"] },
-  },
-  CO: {
-    EP: { threebet: ["QQ+", "AKs", "AKo"],
-          call: ["77-JJ", "AQs", "AJs", "ATs", "KQs", "KJs", "QJs", "JTs"] },
-    MP: { threebet: ["JJ+", "AKs", "AKo", "AQs"],
-          call: ["77-TT", "AJs", "ATs", "A5s", "KQs", "KJs", "KTs", "QJs", "QTs", "JTs", "T9s"] },
-  },
-  BTN: {
-    EP: { threebet: ["QQ+", "AKs", "AKo", "AQs"],
-          call: ["66-JJ", "AJs", "ATs", "KQs", "KJs", "KTs", "QJs", "QTs", "JTs", "T9s"] },
-    MP: { threebet: ["JJ+", "AKs", "AKo", "AQs", "A5s"],
-          call: ["55-TT", "AJs", "ATs", "A9s", "KQs", "KJs", "KTs", "QJs", "QTs", "JTs", "J9s",
-                 "T9s", "98s", "AQo", "KQo"] },
-    CO: { threebet: ["TT+", "AKs", "AQs", "AJs", "A4s", "A5s", "KQs", "AKo"],
-          call: ["44-99", "ATs", "A9s", "A8s", "KJs", "KTs", "K9s", "QJs", "QTs", "Q9s", "JTs",
-                 "J9s", "T9s", "98s", "87s", "AQo", "AJo", "KQo"] },
-  },
-  SB: {
-    EP: { threebet: ["QQ+", "AKs", "AKo", "AQs"], call: ["TT-JJ", "AJs", "KQs"] },
-    MP: { threebet: ["JJ+", "AKs", "AKo", "AQs"], call: ["99-TT", "AJs", "ATs", "KQs", "QJs"] },
-    CO: { threebet: ["TT+", "AKs", "AQs", "AJs", "A5s", "AKo"],
-          call: ["77-99", "ATs", "KQs", "KJs", "QJs", "JTs"] },
-    BTN: { threebet: ["88+", "ATs+", "A3s-A5s", "KJs+", "QJs", "AQo+"],
-           call: ["44-77", "A9s", "KTs", "QTs", "JTs", "T9s", "98s", "AJo", "KQo"] },
-  },
-  BB: {
-    EP: { threebet: ["QQ+", "AKs", "AKo", "A5s"],
-          call: ["22-JJ", "AQs", "AJs", "ATs", "A9s", "KQs", "KJs", "KTs", "QJs", "QTs", "JTs",
-                 "T9s", "98s", "AQo", "AJo", "KQo"] },
-    MP: { threebet: ["JJ+", "AKs", "AKo", "AQs", "A3s-A5s"],
-          call: ["22-TT", "AJs", "ATs", "A6s-A9s", "A2s", "K9s-KQs", "Q9s-QJs", "J9s-JTs",
-                 "T9s", "98s", "87s", "AQo", "AJo", "ATo", "KQo", "KJo"] },
-    CO: { threebet: ["TT+", "AKs", "AQs", "AJs", "A2s-A5s", "KQs", "AKo", "AQo"],
-          call: ["22-99", "A6s-ATs", "K7s-KJs", "Q8s-QJs", "J8s-JTs", "T8s-T9s", "98s", "87s",
-                 "76s", "65s", "AJo", "ATo", "A9o", "KQo", "KJo", "KTo", "QJo", "QTo", "JTo"] },
-    BTN: { threebet: ["99+", "ATs+", "A2s-A5s", "KJs+", "QJs", "JTs", "AJo+", "KQo"],
-           call: ["22-88", "A6s-A9s", "K5s-KTs", "Q7s-QTs", "J7s-J9s", "T7s-T9s", "96s-98s",
-                  "86s-87s", "75s-76s", "65s", "54s", "A2o-ATo", "K9o-KJo", "Q9o-QJo",
-                  "J9o-JTo", "T9o", "98o"] },
-    SB: { threebet: ["77+", "A9s+", "A2s-A5s", "KTs+", "QTs+", "JTs", "T9s", "ATo+", "KJo+"],
-          call: ["22-66", "A6s-A8s", "K2s-K9s", "Q5s-Q9s", "J6s-J9s", "T6s-T8s", "95s-98s",
-                 "85s-87s", "74s-76s", "64s-65s", "53s-54s", "43s", "A2o-A9o", "K7o-KTo",
-                 "Q8o-QJo", "J8o-JTo", "T8o-T9o", "97o-98o", "87o"] },
-  },
-};
+/**
+ * 3. The pot is limped to you - isolate, overlimp, or fold.
+ *
+ *   BUCKET: {
+ *     seats: [seats this bucket covers],
+ *     one:   { raise: [tokens], call: [tokens] },
+ *     many:  { raise: [tokens], call: [tokens] },
+ *   }
+ *
+ * Set `checksRest: true` on an entry instead of `call` where folding is not an
+ * option - the big blind closing the action for free.
+ */
+const VS_LIMP = {};
 
-// ---------------------------------------------------------------------------
-// 3. Limped to you — isolate, overlimp, or fold.
-//    Split by how many players have limped. More limpers means better pot odds
-//    to come along, but worse equity realisation for a raise, so isolation
-//    ranges tighten and get more value-heavy while overlimping widens.
-//    The big blind is a special case: checking is free, so it never folds.
-// ---------------------------------------------------------------------------
-
-const VS_LIMP = {
-  EP: {
-    seats: ["UTG+1", "UTG+2", "LJ"],
-    one: {
-      raise: ["TT+", "AJs+", "KQs", "AQo+"],
-      call: ["22-99", "A8s-ATs", "KJs", "QJs", "JTs", "T9s"],
-    },
-    many: {
-      raise: ["JJ+", "AQs+", "AKo"],
-      call: ["22-TT", "A2s-ATs", "KJs", "KTs", "QJs", "QTs", "JTs", "T9s", "98s"],
-    },
-  },
-  MP: {
-    seats: ["HJ", "CO"],
-    one: {
-      raise: ["77+", "A9s+", "KTs+", "QJs", "JTs", "ATo+", "KQo"],
-      call: ["22-66", "A2s-A8s", "K9s", "QTs", "J9s", "T9s", "98s"],
-    },
-    many: {
-      raise: ["99+", "AJs+", "KQs", "AQo+"],
-      call: ["22-88", "A2s-ATs", "K9s-KJs", "QTs-QJs", "J9s-JTs", "T8s-T9s", "98s", "87s"],
-    },
-  },
-  BTN: {
-    seats: ["BTN"],
-    one: {
-      raise: ["55+", "A2s+", "K8s+", "Q9s+", "J9s+", "T9s", "A9o+", "KJo+", "QJo"],
-      call: ["22-44", "K2s-K7s", "Q5s-Q8s", "J7s-J8s", "T8s", "98s", "87s", "76s"],
-    },
-    many: {
-      raise: ["77+", "A8s+", "KTs+", "QJs", "JTs", "ATo+", "KQo"],
-      call: ["22-66", "A2s-A7s", "K2s-K9s", "Q5s-QTs", "J7s-J9s", "T7s-T8s", "96s-98s",
-             "86s-87s", "75s-76s", "65s", "54s"],
-    },
-  },
-  SB: {
-    seats: ["SB"],
-    one: {
-      raise: ["66+", "A7s+", "KTs+", "QJs", "ATo+", "KQo"],
-      call: ["22-55", "A2s-A6s", "K7s-K9s", "QTs", "JTs", "T9s", "98s"],
-    },
-    many: {
-      raise: ["88+", "ATs+", "KQs", "AQo+"],
-      call: ["22-77", "A2s-A9s", "K7s-KJs", "QTs-QJs", "JTs", "T9s", "98s", "87s"],
-    },
-  },
-  BB: {
-    seats: ["BB"],
-    one: { raise: ["66+", "A8s+", "KTs+", "QJs", "JTs", "ATo+", "KQo"], call: [], checksRest: true },
-    many: { raise: ["88+", "ATs+", "KQs", "AJo+"], call: [], checksRest: true },
-  },
-};
-
-// ---------------------------------------------------------------------------
-// 4. You opened and got 3-bet — 4-bet, call, or fold.
-//    Keyed by the bucket you opened from, then by where the 3-bet came from.
-//    You continue wider against the big blind because it 3-bets widest, and a
-//    strong opening range (early position) continues at a higher rate than a
-//    wide one (the button), even though it is a smaller range in absolute terms.
-// ---------------------------------------------------------------------------
-
-/** Where the 3-bet came from, relative to you. */
+/** Where a 3-bet came from, relative to you. Structural, not range data. */
 const THREEBETTER = {
   IP: { label: "a player in position" },
   SB: { label: "the small blind" },
   BB: { label: "the big blind" },
 };
 
-const VS_3BET = {
-  EP: {
-    seats: ["UTG", "UTG+1", "UTG+2"],
-    IP: { fourbet: ["QQ+", "AKs", "AKo"], call: ["TT-JJ", "AQs", "AJs", "KQs"] },
-    SB: { fourbet: ["QQ+", "AKs", "AKo"], call: ["99-JJ", "AQs", "AJs", "KQs"] },
-    BB: { fourbet: ["QQ+", "AKs", "AKo", "A5s"],
-          call: ["88-JJ", "AQs", "AJs", "ATs", "KQs", "KJs", "QJs"] },
-  },
-  MP: {
-    seats: ["LJ", "HJ"],
-    IP: { fourbet: ["QQ+", "AKs", "AKo"], call: ["TT-JJ", "AQs", "AJs", "KQs"] },
-    SB: { fourbet: ["QQ+", "AKs", "AKo", "A5s"],
-          call: ["99-JJ", "AQs", "AJs", "KQs", "QJs"] },
-    BB: { fourbet: ["QQ+", "AKs", "AKo", "A4s", "A5s"],
-          call: ["88-JJ", "AQs", "AJs", "ATs", "KQs", "KJs", "QJs", "JTs"] },
-  },
-  CO: {
-    seats: ["CO"],
-    IP: { fourbet: ["QQ+", "AKs", "AKo", "A5s"],
-          call: ["99-JJ", "AQs", "AJs", "KQs", "KJs", "QJs"] },
-    SB: { fourbet: ["QQ+", "AKs", "AKo", "A4s", "A5s"],
-          call: ["88-JJ", "AQs", "AJs", "ATs", "KQs", "KJs", "QJs", "JTs"] },
-    BB: { fourbet: ["JJ+", "AKs", "AQs", "AKo", "A4s", "A5s"],
-          call: ["77-TT", "AJs", "ATs", "A9s", "KQs", "KJs", "KTs", "QJs", "QTs", "JTs",
-                 "T9s", "AQo"] },
-  },
-  BTN: {
-    seats: ["BTN"],
-    SB: { fourbet: ["QQ+", "AKs", "AQs", "AKo", "A4s", "A5s"],
-          call: ["88-JJ", "AJs", "ATs", "KQs", "KJs", "QJs", "JTs", "AQo"] },
-    BB: { fourbet: ["JJ+", "AKs", "AQs", "AKo", "A3s-A5s"],
-          call: ["66-TT", "AJs", "ATs", "A9s", "KQs", "KJs", "KTs", "QJs", "QTs", "JTs",
-                 "T9s", "98s", "AQo", "AJo"] },
-  },
-  SB: {
-    seats: ["SB"],
-    BB: { fourbet: ["QQ+", "AKs", "AQs", "AKo", "A4s", "A5s"],
-          call: ["88-JJ", "AJs", "ATs", "KQs", "KJs", "QJs", "JTs", "AQo"] },
-  },
-};
+/**
+ * 4. You opened and got 3-bet - 4-bet, call, or fold.
+ *
+ *   OPENER_BUCKET: {
+ *     seats: [seats this bucket covers],
+ *     IP:  { fourbet: [tokens], call: [tokens] },
+ *     SB:  { fourbet: [tokens], call: [tokens] },
+ *     BB:  { fourbet: [tokens], call: [tokens] },
+ *   }
+ *
+ * Inner keys are keys of THREEBETTER; any may be omitted.
+ */
+const VS_3BET = {};
 
-// ---------------------------------------------------------------------------
-// 5. You 3-bet and got 4-bet — shove, call, or fold.
-//    The tightest spot in the game and the one the sources agree on most: put
-//    the very top in, continue with a handful more, let the rest go.
-// ---------------------------------------------------------------------------
+/**
+ * 5. A 4-bet is on you - 5-bet, call, or fold.
+ *
+ *   KEY: {
+ *     heroLabel: "in position",
+ *     heroSeats: [seats],
+ *     vsLabel:   "a 4-bet from the original raiser",
+ *     cold:      true,              // optional - see below
+ *     fivebet:   [tokens],
+ *     call:      [tokens],
+ *   }
+ *
+ * Two different spots live here. Without `cold`, you 3-bet and the original
+ * raiser came back over the top. With `cold`, you never 3-bet at all: you
+ * opened, someone behind you 3-bet, and a third player cold 4-bet - so the
+ * 3-bettor still has a decision left behind you. An opener in any seat can
+ * reach the cold version, under the gun included.
+ */
+const VS_4BET = {};
 
-const VS_4BET = {
-  "IP-EARLY": {
-    heroLabel: "in position",
-    heroSeats: ["LJ", "HJ", "CO", "BTN"],
-    vsLabel: "an early or middle position opener",
-    fivebet: ["AA", "KK"],
-    call: ["QQ", "AKs", "AKo"],
-  },
-  "IP-LATE": {
-    heroLabel: "in position",
-    heroSeats: ["BTN"],
-    vsLabel: "a cutoff or button opener",
-    fivebet: ["AA", "KK", "AKs"],
-    call: ["JJ", "QQ", "AKo", "AQs"],
-  },
-  "BLIND-EARLY": {
-    heroLabel: "from the blinds",
-    heroSeats: ["SB", "BB"],
-    vsLabel: "an early or middle position opener",
-    fivebet: ["AA", "KK"],
-    call: ["QQ", "AKs", "AKo"],
-  },
-  "BLIND-LATE": {
-    heroLabel: "from the blinds",
-    heroSeats: ["SB", "BB"],
-    vsLabel: "a cutoff or button opener",
-    fivebet: ["AA", "KK", "AKs", "A5s"],
-    call: ["JJ", "QQ", "AKo", "AQs"],
-  },
+/**
+ * 5b. It got 3-bet before it reached you - cold 4-bet, cold call, or fold.
+ *
+ *   KEY: {
+ *     heroLabel: "in position",
+ *     heroSeats: [seats],
+ *     opener:    "EP",              // a key of BUCKETS - where the open came from
+ *     vsLabel:   "a 3-bet of an early position open",
+ *     fourbet:   [tokens],
+ *     call:      [tokens],
+ *   }
+ *
+ * Distinct from spot 4: there you had already opened and had range invested.
+ * Here you have nothing in the pot and two opponents, one of whom has shown
+ * real strength and one who has not yet acted again.
+ */
+const COLD_3BET = {};
 
-  // You never 3-bet at all: you opened, someone 3-bet behind you, and a third
-  // player cold 4-bet. Tighter than the spots above, because a cold 4-bet is a
-  // stronger range than a 4-bet defending its own open, and because the 3-bettor
-  // still has a decision left behind you.
-  "OPENER-EARLY": {
-    heroLabel: "as an early or middle position opener",
-    heroSeats: ["UTG", "UTG+1", "UTG+2", "LJ", "HJ"],
-    vsLabel: "a cold 4-bet behind you",
-    cold: true,
-    fivebet: ["AA", "KK"],
-    call: ["QQ", "AKs"],
-  },
-  "OPENER-LATE": {
-    heroLabel: "as a late position opener",
-    heroSeats: ["CO", "BTN"],
-    vsLabel: "a cold 4-bet behind you",
-    cold: true,
-    fivebet: ["AA", "KK", "AKs"],
-    call: ["QQ", "AKo"],
-  },
-};
-
-// ---------------------------------------------------------------------------
-// 5b. It got 3-bet before it reached you — cold 4-bet, cold call, or fold.
-//     Distinct from spot 4: there you had already opened and had money and
-//     range invested. Here you have nothing in the pot and are looking at two
-//     opponents, one of whom has shown real strength and one who has not yet
-//     acted again. It is the tightest continuing range in the game outside
-//     facing a 4-bet, and cold-calling is the part most players overdo.
-//
-//     Split by whether the original raise came from early or middle position,
-//     because that governs how wide the 3-bettor can credibly be.
-// ---------------------------------------------------------------------------
-
-const COLD_3BET = {
-  "IP-EP": {
-    heroLabel: "in position",
-    heroSeats: ["CO", "BTN"],
-    opener: "EP",
-    vsLabel: "an early position open",
-    fourbet: ["QQ+", "AKs"],
-    call: ["TT-JJ", "AQs", "AKo"],
-  },
-  "IP-MP": {
-    heroLabel: "in position",
-    heroSeats: ["BTN"],
-    opener: "MP",
-    vsLabel: "a middle position open",
-    fourbet: ["JJ+", "AKs", "AKo"],
-    call: ["99-TT", "AQs", "AJs", "KQs"],
-  },
-  "BLINDS-EP": {
-    heroLabel: "in the blinds",
-    heroSeats: ["SB", "BB"],
-    opener: "EP",
-    vsLabel: "an early position open",
-    fourbet: ["QQ+", "AKs"],
-    call: ["JJ", "AKo"],
-  },
-  "BLINDS-MP": {
-    heroLabel: "in the blinds",
-    heroSeats: ["SB", "BB"],
-    opener: "MP",
-    vsLabel: "a middle position open",
-    fourbet: ["JJ+", "AKs", "AKo"],
-    call: ["TT", "AQs"],
-  },
-};
-
-// ---------------------------------------------------------------------------
-// 6. Someone opened and someone else called — squeeze, call, or fold.
-//    Always tighter than 3-betting the same opener heads-up: there is a second
-//    player already committed, so bluffs get through less often and the caller's
-//    range is capped but real. check-ranges.js asserts that relationship.
-// ---------------------------------------------------------------------------
-
+/** Where a squeeze opportunity's original raise came from. Structural. */
 const SQUEEZE_OPENER = {
   EP: { label: "early position" },
   MP: { label: "middle position" },
   LATE: { label: "the cutoff or button" },
 };
 
-const SQUEEZE = {
-  IP: {
-    heroLabel: "in position behind the caller",
-    heroSeats: ["HJ", "CO", "BTN"],
-    EP: { squeeze: ["QQ+", "AKs", "AKo"],
-          call: ["99-JJ", "AQs", "AJs", "KQs", "QJs", "JTs"] },
-    MP: { squeeze: ["JJ+", "AKs", "AKo", "AQs"],
-          call: ["77-TT", "AJs", "ATs", "KQs", "KJs", "QJs", "JTs", "T9s"] },
-    LATE: { squeeze: ["TT+", "AKs", "AQs", "AJs", "A5s", "AKo"],
-            call: ["55-99", "ATs", "A9s", "KQs", "KJs", "KTs", "QJs", "QTs", "JTs", "T9s", "98s"] },
-  },
-  SB: {
-    heroLabel: "in the small blind",
-    heroSeats: ["SB"],
-    EP: { squeeze: ["QQ+", "AKs", "AKo"], call: ["TT-JJ", "AQs"] },
-    MP: { squeeze: ["JJ+", "AKs", "AKo", "AQs"], call: ["99-TT", "AJs", "KQs"] },
-    LATE: { squeeze: ["TT+", "AKs", "AQs", "AJs", "A5s", "AKo"],
-            call: ["77-99", "ATs", "KQs", "KJs", "QJs"] },
-  },
-  BB: {
-    heroLabel: "in the big blind",
-    heroSeats: ["BB"],
-    EP: { squeeze: ["QQ+", "AKs", "AKo", "A5s"],
-          call: ["66-JJ", "AQs", "AJs", "ATs", "KQs", "KJs", "QJs", "JTs", "T9s"] },
-    MP: { squeeze: ["JJ+", "AKs", "AKo", "AQs", "A5s"],
-          call: ["44-TT", "AJs", "ATs", "A9s", "KQs", "KJs", "KTs", "QJs", "QTs", "JTs",
-                 "T9s", "98s"] },
-    LATE: { squeeze: ["TT+", "AKs", "AQs", "AJs", "AKo", "A4s", "A5s"],
-            call: ["22-99", "A6s-ATs", "K9s-KQs", "Q9s-QJs", "J9s-JTs", "T9s", "98s", "87s", "76s"] },
-  },
-};
+/**
+ * 6. Someone opened and someone else called - squeeze, call, or fold.
+ *
+ *   HERO_KEY: {
+ *     heroLabel: "in position behind the caller",
+ *     heroSeats: [seats],
+ *     EP:   { squeeze: [tokens], call: [tokens] },
+ *     MP:   { squeeze: [tokens], call: [tokens] },
+ *     LATE: { squeeze: [tokens], call: [tokens] },
+ *   }
+ *
+ * Inner keys are keys of SQUEEZE_OPENER; any may be omitted.
+ */
+const SQUEEZE = {};
 
 // ---------------------------------------------------------------------------
 // Building the spot list

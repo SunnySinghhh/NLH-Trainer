@@ -5,10 +5,11 @@ future-me does not underestimate it.
 
 ## Opponent opening sizes
 
-Every range here assumes a **standard ~2.5bb open**. That assumption is baked in
-and currently invisible to the user, which is the part that bothers me most —
-someone drilling this and then sitting in a live game facing 5bb opens is being
-taught the wrong defence.
+Whatever open size the new ranges get written against needs **stating out loud**
+in the provenance panel. On the previous data set it was ~2.5bb, baked in and
+invisible to the user - someone drilling that and then sitting in a live game
+facing 5bb opens was being taught the wrong defence. Decide the size before
+writing the defending ranges, not after.
 
 Facing a bigger open you defend **tighter** (worse price, deeper effective
 stack-to-pot); facing a min-raise you defend **much wider**. The effect is large

@@ -239,6 +239,21 @@
   }
 
   .note { font-size: 12px; color: var(--faint); max-width: 76ch; }
+
+  .provenance { padding: 22px; display: flex; flex-direction: column; gap: 10px; }
+  .provenance p { margin: 0; font-size: 12.5px; line-height: 1.75; color: var(--muted); max-width: 82ch; }
+  .provenance b { color: var(--text); font-weight: 600; }
+  code {
+    font-family: "JetBrains Mono", monospace; font-size: .92em;
+    background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 4px; padding: 1px 5px; color: var(--text);
+  }
+
+  .empty { padding: 44px 26px; text-align: center; display: flex; flex-direction: column; gap: 11px; align-items: center; }
+  .empty h2 { margin: 0; font-size: 18px; font-weight: 650; letter-spacing: -.015em; }
+  .empty p { margin: 0; font-size: 13.5px; color: var(--muted); max-width: 54ch; line-height: 1.7; }
+  .empty .steps { margin: 6px 0 0; text-align: left; display: flex; flex-direction: column; gap: 7px; }
+  .empty .steps li { font-size: 13px; color: var(--muted); line-height: 1.6; }
   .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   [hidden] { display: none !important; }
 
@@ -252,12 +267,11 @@
 <div class="wrap">
   <div class="top">
     <div>
-      <span class="kicker">9-max full ring &middot; 100bb</span>
+      <span class="kicker">9-max full ring</span>
       <h1>Preflop Range Trainer</h1>
       <p class="sub">
-        The whole preflop tree: it folds to you, someone raises, it is 3-bet
-        before it reaches you, you get 3-bet or 4-bet yourself, someone opens and
-        gets called, or the pot is limped. Then see exactly where your hand sat.
+        Drill a preflop decision, then see exactly where your hand sat in the
+        range. Scenarios appear here as their ranges are filled in.
       </p>
     </div>
     <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
@@ -276,7 +290,23 @@
   </div>
 
   <section id="view-drill" role="tabpanel" aria-labelledby="tab-drill" style="display:flex;flex-direction:column;gap:18px">
-    <div class="cols">
+    <div class="panel empty" id="empty" hidden>
+      <span class="kicker">No ranges loaded</span>
+      <h2>There is nothing to drill yet</h2>
+      <p>
+        Every range table in <code>ranges.js</code> is empty. The trainer is
+        intact and will light up scenario by scenario as you fill them in.
+      </p>
+      <ol class="steps">
+        <li>Add hands to a table in <code>ranges.js</code> &mdash; each one
+            documents the shape it expects.</li>
+        <li>Run <code>node check-ranges.js</code> to see what holds and what is
+            still skipped.</li>
+        <li>Run <code>node build.js</code> to rebuild this page.</li>
+      </ol>
+    </div>
+
+    <div class="cols" id="drill-cols">
       <div class="panel drill">
         <div style="display:flex;flex-direction:column;gap:9px">
           <div class="seats" id="seats"></div>
@@ -326,7 +356,7 @@
       </div>
     </div>
 
-    <div class="panel stats">
+    <div class="panel stats" id="drill-filters">
       <div class="filters">
         <span class="kicker">Drill</span>
         <span class="seg" id="scenario-seg"></span>
@@ -344,7 +374,13 @@
   </section>
 
   <section id="view-charts" role="tabpanel" aria-labelledby="tab-charts" hidden>
-    <div class="panel grid-panel">
+    <div class="panel empty" id="empty-charts" hidden>
+      <span class="kicker">No ranges loaded</span>
+      <h2>No charts to show</h2>
+      <p>Fill in a table in <code>ranges.js</code> and rebuild.</p>
+    </div>
+
+    <div class="panel grid-panel" id="charts-panel">
       <div class="filters">
         <span class="kicker">Spot</span>
         <span class="seg" id="chart-scenario-seg"></span>
@@ -364,38 +400,30 @@
 
   <section class="panel provenance">
     <span class="kicker">Where these ranges come from</span>
-    <p>
-      Hand-written as a <b>consensus teaching baseline</b>, not copied from any
-      single published chart and <b>not solver output</b>. Nothing here is claimed
-      to be optimal. Where sources disagree &mdash; and they disagree most on
-      squeezes and multiway limped pots &mdash; a middle position was taken.
+    <p id="prov-empty" hidden>
+      <b>No range data is loaded.</b> Every table in <code>ranges.js</code> is
+      empty, so there is nothing to drill and nothing to chart yet. The ranges
+      are being written from scratch, one position and one spot at a time.
     </p>
     <p>
-      <b>One deliberate departure:</b> UTG+2 through the cutoff are given an
-      open-limping range. Standard charts are raise-or-fold from every seat but
-      the small blind, and a solver would almost never open-limp &mdash; this is
-      a live-game line, included on request. It changes the right answer for a
-      lot of speculative hands. The small blind <i>completing</i> is different:
-      that one is standard.
+      Ranges live in <code>ranges.js</code> and are injected into this page at
+      build time, so the trainer can never drill something different from what
+      <code>check-ranges.js</code> validates.
     </p>
     <p>
-      <b>Assumptions baked in:</b> 9-max full ring, 100bb effective, a standard
-      <b>~2.5bb open</b>, and no ante or straddle. Facing much larger opens you
-      should defend tighter than this; facing min-raises, wider.
-      The opponent's seat is bucketed &mdash; early, middle, cutoff, button,
-      blinds &mdash; which is how charts are taught; a solver would treat every
-      exact pairing separately.
+      <b>What is actually verified:</b> structural checks run over all
+      <span id="spot-count">0</span> spots on every build &mdash; no hand is
+      ever given two actions, ranges widen with position, defence widens
+      against later raises, and so on. A check with nothing to run against
+      reports as <i>skipped</i> rather than passing, so a half-filled chart
+      never reads as green. These catch a chart that contradicts itself; they
+      cannot tell you it is the best strategy.
     </p>
-    <p>
-      <b>What is actually verified:</b> 21 structural checks run over all
-      <span id="spot-count">68</span> spots on every build. No hand is ever given
-      two actions; ranges widen with position; defence widens against later
-      raises; the big blind defends wider than the small blind and never folds to
-      a limp; 4-bets are far tighter than the opens that invite them; squeezes
-      are tighter than 3-betting the same opener heads-up; and more limpers
-      means a tighter isolate but a wider overlimp. These catch a chart that
-      contradicts itself &mdash; they cannot tell you it is the best strategy.
-    </p>
+    <!-- Once ranges exist, state the assumptions they were written against
+         here: table size, effective stack, the opening size every defending
+         range assumes, ante/straddle, and whether the opponent's seat is
+         bucketed or exact. Those assumptions change the right answer and are
+         invisible to the user otherwise. -->
   </section>
 </div>
 
@@ -606,7 +634,13 @@
   }
 
   // ---------- drill ----------
-  let enabled = Object.keys(SCENARIOS);
+  // Ranges are filled in spot by spot, so at any moment only some scenarios
+  // exist. A scenario with no spots is not shown at all rather than offered
+  // and then dealing nothing.
+  const AVAILABLE = Object.keys(SCENARIOS).filter((k) => SPOTS.some((s) => s.scenario === k));
+  const HAS_DATA = SPOTS.length > 0;
+
+  let enabled = [...AVAILABLE];
   let spot = null;
   let answered = false;
   const tally = new Map();
@@ -614,6 +648,7 @@
 
   function deal() {
     const pool = SPOTS.filter((s) => enabled.includes(s.scenario));
+    if (!pool.length) return null;
     const chosen = pick(pool);
     const heroSeat = pick(chosen.heroSeats);
 
@@ -748,7 +783,9 @@
   }
 
   function newHand() {
-    spot = deal();
+    const dealt = deal();
+    if (!dealt) return;
+    spot = dealt;
     answered = false;
     renderSeats(spot);
     el("story").innerHTML = storyFor(spot) + " " + questionFor(spot.spot);
@@ -920,7 +957,7 @@
 
   // ---------- filters ----------
   const scenarioSeg = el("scenario-seg");
-  for (const key of Object.keys(SCENARIOS)) {
+  for (const key of AVAILABLE) {
     const b = document.createElement("button");
     b.type = "button";
     b.textContent = SCENARIOS[key].label;
@@ -943,24 +980,27 @@
   };
 
   // ---------- charts ----------
-  let chartScenario = "rfi";
-  let chartSpotId = SPOTS.find((s) => s.scenario === "rfi").id;
+  const firstIn = (key) => SPOTS.find((s) => s.scenario === key);
+
+  let chartScenario = AVAILABLE.includes("rfi") ? "rfi" : AVAILABLE[0] || null;
+  let chartSpotId = chartScenario ? firstIn(chartScenario).id : null;
 
   const chartScenarioSeg = el("chart-scenario-seg");
-  for (const key of Object.keys(SCENARIOS)) {
+  for (const key of AVAILABLE) {
     const b = document.createElement("button");
     b.type = "button";
     b.textContent = SCENARIOS[key].label;
     b.setAttribute("aria-pressed", String(key === chartScenario));
     b.onclick = () => {
       chartScenario = key;
-      chartSpotId = SPOTS.find((s) => s.scenario === key).id;
+      chartSpotId = firstIn(key).id;
       syncChart();
     };
     chartScenarioSeg.append(b);
   }
 
   function syncChart() {
+    if (!chartSpotId) return;
     for (const b of chartScenarioSeg.querySelectorAll("button")) {
       b.setAttribute("aria-pressed", String(b.textContent === SCENARIOS[chartScenario].label));
     }
@@ -1018,7 +1058,7 @@
   // ---------- keyboard ----------
   document.addEventListener("keydown", (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (el("view-drill").hidden) return;
+    if (el("view-drill").hidden || !spot) return;
     const key = e.key.toLowerCase();
     if (!answered) {
       for (const action of spot.spot.actions) {
@@ -1030,7 +1070,16 @@
     }
   });
 
-  newHand();
-  syncChart();
+  el("spot-count").textContent = String(SPOTS.length);
+
+  if (HAS_DATA) {
+    newHand();
+    syncChart();
+  } else {
+    // Stand the working UI down and explain why, rather than rendering a
+    // trainer with no hand in it.
+    for (const id of ["drill-cols", "drill-filters", "charts-panel"]) el(id).hidden = true;
+    for (const id of ["empty", "empty-charts", "prov-empty"]) el(id).hidden = false;
+  }
 })();
 </script>

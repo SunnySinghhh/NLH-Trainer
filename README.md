@@ -1,108 +1,87 @@
 # Preflop Range Trainer
 
-A 9-max full ring preflop trainer. One self-contained HTML page — no build
-step to run it, no dependencies to install.
+A 9-max full ring preflop trainer. One self-contained HTML page - no build step
+to run it, no dependencies to install.
 
-Three scenarios, 32 spots:
-
-| Scenario | Your actions | Spots |
-|---|---|---|
-| It folds to you | Raise / Fold, plus **Complete** (SB) or **Limp** (UTG+2–CO) | 8 |
-| Opened to you | 3-Bet / Call / Fold | 19 |
-| 3-bet before it reached you | Cold 4-Bet / Call / Fold | 4 |
-| You opened, they 3-bet | 4-Bet / Call / Fold | 12 |
-| Facing a 4-bet | Shove / Call / Fold — you 3-bet, **or** you opened and got cold 4-bet | 6 |
-| Open plus a caller | Squeeze / Call / Fold | 9 |
-| Limped to you (1 or 2+) | Isolate / Overlimp / Fold — **Check** in the big blind | 10 |
-
-**68 spots in total**, checked by 21 structural assertions on every build.
-
-### One deliberate departure from standard charts
-
-UTG+2 through the cutoff have an **open-limping** range. Standard charts are
-raise-or-fold from every seat except the small blind, and a solver would almost
-never open-limp — this is a live-game line, added on request, and it changes the
-right answer for a lot of speculative hands. The small blind *completing* is a
-different thing and is standard. Under the gun, UTG+1 and the button stay
-raise-or-fold.
-| Someone raises ahead of you | 3-Bet / Call / Fold |
-| Someone limps ahead of you | Raise / Call / Fold — or Raise / **Check** in the big blind |
+**The range data is currently empty.** The trainer, the checks and the build
+step are all intact; the ranges are being written from scratch, one position
+and one spot at a time. Until a table is filled in, the page says so rather
+than pretending to drill something.
 
 ## Files
 
 | File | What |
 |---|---|
-| `ranges.js` | **The range data — the single source of truth.** |
+| `ranges.js` | **The range data - the single source of truth.** Currently empty. |
 | `trainer.src.html` | The page. Edit this one. |
-| `trainer.html` | Built output: data injected, pure ASCII. |
+| `trainer.html` | Built output: data injected, pure ASCII. Do not edit. |
 | `check-ranges.js` | Coherence checks on the ranges. |
 | `build.js` | Injects the data and escapes non-ASCII. |
 
 ```bash
-node check-ranges.js   # 10 coherence checks, prints every range's percentages
+node check-ranges.js   # what holds, what fails, what is skipped for want of data
 node build.js          # rebuild trainer.html
 ```
 
 The data lives in exactly one place and is injected at build time, so the page
 can never drill something different from what the checks validate.
 
-## About the ranges
+## Adding a spot
 
-A consensus teaching baseline for 9-max cash at 100bb. **Not solver output**,
-and not claimed to be optimal — the page says so too.
+1. **Fill in a table in `ranges.js`.** Each one carries a comment showing the
+   exact shape it expects. Ranges are written in standard notation - `66+`,
+   `88-JJ`, `ATs+`, `A2s-A5s`, `AJo+`, `T9s` - and expanded programmatically.
+2. **Run `node check-ranges.js`.** Anything structurally wrong shows up here.
+3. **Run `node build.js`.** Open `trainer.html`.
 
-The opponent's seat is bucketed into early / middle / cutoff / button / small
-blind, which is how these charts are normally taught. A real solver would treat
-every exact pairing separately; bucketing keeps the number of distinct ranges
-to something that can actually be checked by hand rather than 250 charts typed
-from memory.
+Scenarios appear in the UI only when they have spots. A half-filled `ranges.js`
+gives a working trainer over exactly the spots that exist, so it is safe to
+build one position at a time.
 
-### Opening ranges (folded to you)
+## The scenarios the page knows how to render
 
-| | UTG | UTG+1 | UTG+2 | LJ | HJ | CO | BTN | SB |
-|---|---|---|---|---|---|---|---|---|
-| open | 9.5% | 11.8% | 14.6% | 17.2% | 21.0% | 27.3% | 44.2% | 39.7% |
-| complete | — | — | — | — | — | — | — | 16.3% |
+Each maps to one table in `ranges.js`. An empty table means the scenario is
+hidden, not broken.
 
-Only the small blind gets a completing range. It is the one seat offered a
-half-blind price to close the action against a single opponent. Everyone else
-calling here would be open-limping into a field with players still to act,
-which is not part of these charts.
+| Scenario | Your actions | Table |
+|---|---|---|
+| It folds to you | Raise / Fold, plus Limp or Complete where offered | `RFI` |
+| Someone raised ahead of you | 3-Bet / Call / Fold | `VS_OPEN` |
+| It got 3-bet before it reached you | Cold 4-Bet / Call / Fold | `COLD_3BET` |
+| You opened and got 3-bet | 4-Bet / Call / Fold | `VS_3BET` |
+| A 4-bet is on you | 5-Bet / Call / Fold | `VS_4BET` |
+| Someone opened and someone called | Squeeze / Call / Fold | `SQUEEZE` |
+| Limped to you, one or many | Isolate / Overlimp / Fold, or Check in the BB | `VS_LIMP` |
 
-### Total defence facing a raise
+Two of these have a wrinkle worth remembering while writing the theory:
 
-| | vs EP | vs MP | vs CO | vs BTN | vs SB |
-|---|---|---|---|---|---|
-| BTN | 8.3% | 11.8% | 14.6% | — | — |
-| SB | 4.4% | 5.4% | 7.2% | 13.4% | — |
-| BB | 13.7% | 18.6% | 25.2% | 39.1% | 49.3% |
+- **`VS_4BET` covers two different spots.** Normally you 3-bet and the original
+  raiser came back over the top. But an opener can also face a **cold 4-bet**
+  without ever 3-betting: you open, someone behind you 3-bets, a third player
+  4-bets. Every seat can reach that version, under the gun included - and in it
+  the 3-bettor still has a decision left behind you. Mark those entries `cold`.
+- **Under the gun can never 3-bet**, because nobody opens ahead of it. It can
+  still be 4-bet, by the route above.
 
 ## What the checks establish
 
-None of them prove the ranges are optimal — nothing could. They catch a chart
-that contradicts itself or contradicts position:
+None of them prove a range is optimal - nothing could. They catch a chart that
+contradicts itself or contradicts position: no hand given two actions, opening
+ranges widening from under the gun to the button and nesting as they go,
+defence widening against later raises, the big blind defending wider than the
+small blind, 4-bets far tighter than the opens that invite them, squeezes
+tighter than 3-betting the same opener heads-up, and so on.
 
-1. Every hand named is one of the 169 real starting hands
-2. No hand is assigned two different actions in the same spot
-3. No spot plays more than 100% of hands
-4. Aces and kings are always raised, never just called or folded
-5. Opening ranges widen from UTG to the button, and nothing opened early is
-   folded from a later seat
-6. Defence widens as the raise comes from a later seat
-7. The big blind defends wider than the small blind against the same raise
-8. The big blind never folds to a limp
-9. Isolation ranges widen from early position to the button
-10. Only the small blind can complete when the action folds to it
-11. The small blind completes hands it is not already opening, and does not end
-    up playing an absurd share of them
-12. Trash never opens from a seat that is not the button or a blind
+A check with no data to run against reports as **skipped**, not passed, so a
+half-filled `ranges.js` never reads as a clean bill of health.
 
-Two real errors these caught during the build: `KJo` assigned to both the
-3-bet and the call range for BB vs SB, and the small blind defending only
-10.6% against a button that opens 44%.
+Some checks encode opinions about chart shape that were written for the
+previous data set. As the new ranges go in, a check that fights a deliberate
+choice should be changed or removed rather than worked around - it is there to
+express the theory, not to outrank it.
 
 ## Why the ASCII step
 
-The card suits are `♠` and friends. Served without a declared charset they turn
-into mojibake, so `build.js` escapes every non-ASCII character rather than
-depending on a `<meta charset>` that may not survive.
+The card suits are non-ASCII. Served without a declared charset they turn into
+mojibake, so `build.js` escapes every non-ASCII character rather than depending
+on a `<meta charset>` that may not survive.
