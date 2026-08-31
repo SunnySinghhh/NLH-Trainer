@@ -371,6 +371,81 @@ const RANGES = {
       call: ["TT+", "AKs", "AKo"],
     },
   },
+
+  CO: {
+    rfi: {
+      raise: [
+        "22+", "A2s+", "K8s+", "Q9s+", "J9s+", "T8s+", "97s+", "87s", "76s", "65s",
+        "A8o+", "K8o+", "Q9o+", "JTo",
+      ],
+      mix: {
+        "K7s": { raise: 50 },
+        "K6s": { raise: 50 },
+        "Q8s": { raise: 50 },
+        "J8s": { raise: 50 },
+        "K7o": { raise: 45 },
+        "Q8o": { raise: 40 },
+        "J9o": { raise: 40 },
+        "A7o": { raise: 50 },
+        "A6o": { raise: 50 },
+        "A5o": { raise: 50 },
+        "A4o": { raise: 50 },
+        "A3o": { raise: 50 },
+        "A2o": { raise: 50 },
+      },
+    },
+
+    open: {
+      raise: ["99+", "AKs", "AQs", "AJs", "KQs", "AQo", "A5s", "A4s"],
+      call: ["A9s", "A8s", "KJs", "QJs", "KQo", "ATo", "88"],
+      mix: {
+        "AKo": { raise: 80, call: 20 },
+        "ATs": { raise: 55, call: 45 },
+        "AJo": { raise: 55, call: 45 },
+        "KJo": { call: 25 },
+        "JTs": { raise: 55, call: 45 },
+        "T9s": { raise: 50, call: 50 },
+        "98s": { raise: 45, call: 55 },
+        "87s": { raise: 45, call: 55 },
+        "77": { raise: 35, call: 65 },
+        "76s": { call: 45 },
+        "66": { raise: 30, call: 60 },
+        "55": { call: 30 },
+        "44": { call: 30 },
+      },
+    },
+
+    threebet: {
+      raise: ["QQ+", "AKs", "A5s", "A4s"],
+      call: ["AJs", "KQo", "T9s", "99", "98s", "88", "87s"],
+      mix: {
+        "AKo": { raise: 85, call: 15 },
+        "AQs": { raise: 60, call: 40 },
+        "KQs": { raise: 45, call: 55 },
+        "AQo": { raise: 30, call: 70 },
+        "A3s": { raise: 25 },
+        "A2s": { raise: 25 },
+        "JJ": { raise: 70, call: 30 },
+        "TT": { raise: 50, call: 50 },
+        "77": { raise: 30, call: 70 },
+        "66": { raise: 20 },
+        "ATs": { call: 55 },
+        "KJs": { call: 70 },
+        "QJs": { call: 30 },
+        "AJo": { call: 70 },
+        "KJo": { call: 20 },
+        "JTs": { call: 30 },
+      },
+    },
+
+    fourbet: {
+      call: ["TT+", "AKs", "AKo"],
+      mix: {
+        "AQs": { call: 55 },
+        "KQs": { call: 45 },
+      },
+    },
+  },
 };
 
 // ---------------------------------------------------------------------------
