@@ -74,7 +74,17 @@ have to work out both the equity and the price yourself before deciding.
 Answers are typed, graded on a tolerance you pick from Exact to +/-5, and
 every verdict shows the working.
 
-Three deliberate choices in there:
+Two of the types deal **real cards** - your hand plus a flop or a turn - and
+make you count the outs yourself before doing anything with them. **Count your
+outs** asks for the number; **Cards: call or fold** gives you the pot and the
+bet as well, so you have to reach the outs, the equity and the price before
+deciding. The arithmetic types can also put **callers** in the pot, which
+changes the price: one caller turns a half-pot bet from 25% into 20%.
+
+A timer is available here too, at 10 to 60 seconds - longer than the range
+drill's, because arithmetic takes longer than recall.
+
+Some deliberate choices in there:
 
 - **Ratio answers are graded by converting to equity**, so `3:1` becomes 25%
   and is judged on the same tolerance as everything else. `3:1`, `3 to 1`,
@@ -86,6 +96,14 @@ Three deliberate choices in there:
 - **Call-or-fold spots are generated on the turn**, one card to come, and only
   when the margin is at least 4 points. One card avoids hand-waving about
   seeing the river cheaply; the margin stops the answer being a coin flip.
+- **Out counts are graded exactly**, whatever the tolerance is set to. A count
+  of outs is a count, not an estimate.
+- **A card that makes the board itself into a flush or a straight is not an
+  out**, because it plays for everyone. Those are excluded from the count.
+- **Card-based call-or-fold stays heads up.** Extra callers change the price by
+  exact arithmetic, so those appear in the arithmetic questions; your equity
+  against several opponents is not a matter of arithmetic at all, and a naive
+  version would teach a wrong number. See BACKLOG.
 
 Every chart has its own URL: `#BTN/open` opens that chart directly.
 

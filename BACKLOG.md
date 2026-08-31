@@ -23,6 +23,27 @@ the architecture most.
 - The checks would have to become advisory rather than build-time: someone
   else's ranges are allowed to disagree with the position ladder here.
 
+## Equity against more than one opponent
+
+The pot odds trainer takes a number of callers, because extra callers only make
+the pot bigger and that is exact arithmetic - one caller turns a half-pot bet
+from 25% into 20%. Your **equity** multiway is the part that is not shipped,
+and it is not a small job.
+
+- Outs stay the same but hitting them is less often good, so the rule of 2 and
+  4 does not extend: a flush draw that is 36% heads up is not 36% to win a
+  four-way pot, and how far off depends on what the others hold.
+- There is no closed form. Doing it honestly means enumerating or simulating
+  against assumed ranges for each opponent, which is a different kind of
+  program from the arithmetic in there now.
+- A naive version - same outs, same rule, more players - would teach a number
+  that is wrong, which is worse than not offering it.
+- Cheapest honest step: precompute equity tables for common draws against 2 and
+  3 opponents holding plausible ranges, ship those as data, and label them as
+  approximations with the assumption stated.
+
+Until then the card-based call-or-fold questions stay heads up on purpose.
+
 ## Opponent opening sizes
 
 Whatever open size the ranges are written against needs **stating out loud**.

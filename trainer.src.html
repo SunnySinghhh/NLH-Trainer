@@ -171,6 +171,13 @@
   .seat.behind { color: var(--muted); border-color: var(--line); background: transparent; }
 
   .drill { padding: 22px; display: flex; flex-direction: column; gap: 17px; }
+  /* Six cards at drill size would dwarf the question, so the board runs small. */
+  .odds-board { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 12px; }
+  .odds-board .group { display: flex; flex-direction: column; gap: 5px; }
+  .odds-board .cards { display: flex; gap: 5px; }
+  .pcard.sm { width: 40px; height: 56px; border-radius: 5px; }
+  .pcard.sm .r { font-size: 17px; }
+  .pcard.sm .s { font-size: 12px; }
   .odds-scenario { margin: 9px 0 0; font-size: 17px; line-height: 1.65; }
   .odds-scenario b { font-family: "JetBrains Mono", monospace; font-weight: 700; }
   .odds-ask { margin: 12px 0 0; font-size: 15px; font-weight: 600; color: var(--text); }
@@ -395,6 +402,10 @@
 
     /* The roll is a full-width block rather than a column squeezed to the side. */
     .odds-scenario { font-size: 15.5px; }
+    .odds-board { gap: 14px; }
+    .pcard.sm { width: 36px; height: 50px; }
+    .pcard.sm .r { font-size: 15px; }
+    .pcard.sm .s { font-size: 11px; }
     .odds-entry input { font-size: 17px; width: auto; min-width: 0; flex: 1 1 0; }
     .odds-entry button.act { flex: 1 1 100%; }
     .roll { width: 100%; padding: 12px; }
@@ -411,6 +422,8 @@
     /* Filter rows stack: label above its buttons instead of beside them. */
     .filters { gap: 8px; }
     .filters > .kicker { flex: 1 0 100%; }
+    .seg { width: 100%; }
+    .seg button { flex: 1 1 auto; text-align: center; }
     select { padding: 10px 32px 10px 12px; font-size: 14px; }
   }
 
@@ -625,8 +638,10 @@
         </p>
         <div id="odds-live">
           <span class="kicker" id="odds-kind">Pot odds</span>
+          <div id="odds-board" hidden></div>
           <p class="odds-scenario" id="odds-scenario"></p>
           <p class="odds-ask" id="odds-ask"></p>
+          <div class="timer" id="odds-timer" hidden><div class="timer-bar" id="odds-timer-bar"></div></div>
           <div id="odds-answer"></div>
         </div>
       </div>
@@ -652,6 +667,16 @@
         <span class="bulk">
           <button type="button" id="kind-all">All</button>
           <button type="button" id="kind-none">None</button>
+        </span>
+      </div>
+      <div class="filters">
+        <span class="kicker">Timer</span>
+        <span class="seg" id="odds-timer-seg">
+          <button type="button" data-otimer="0" aria-pressed="true">Off</button>
+          <button type="button" data-otimer="10" aria-pressed="false">10s</button>
+          <button type="button" data-otimer="20" aria-pressed="false">20s</button>
+          <button type="button" data-otimer="30" aria-pressed="false">30s</button>
+          <button type="button" data-otimer="60" aria-pressed="false">60s</button>
         </span>
       </div>
       <div class="filters">
@@ -1559,7 +1584,76 @@
     bluff: { label: "Bluff break-even", short: "Bluff" },
     outs: { label: "Outs to equity", short: "Outs" },
     decision: { label: "Call or fold", short: "Decision" },
+    countouts: { label: "Count your outs", short: "Count" },
+    cards: { label: "Cards: call or fold", short: "Cards" },
   };
+
+  // ---- real cards, so outs get counted rather than handed to you ----
+
+  /** Five of a suit anywhere in the given cards. */
+  function hasFlush(cards) {
+    const suits = [0, 0, 0, 0];
+    for (const c of cards) suits[c & 3] += 1;
+    return suits.some((n) => n >= 5);
+  }
+
+  /** Five consecutive ranks, with the ace playing high or low. */
+  function hasStraight(cards) {
+    const ranks = new Set(cards.map((c) => c >> 2));
+    const has = (r) => ranks.has(r < 0 ? 12 : r);
+    for (let lo = -1; lo <= 8; lo++) {
+      let run = true;
+      for (let i = 0; i < 5 && run; i++) if (!has(lo + i)) run = false;
+      if (run) return true;
+    }
+    return false;
+  }
+
+  const TARGETS = {
+    flush: { label: "a flush", made: hasFlush },
+    straight: { label: "a straight", made: hasStraight },
+    either: { label: "a flush or a straight", made: (c) => hasFlush(c) || hasStraight(c) },
+  };
+
+  /**
+   * Cards that complete the target for YOU. A card that makes the board itself
+   * into a flush or straight is not an out - it plays for everyone - so those
+   * are excluded rather than counted.
+   */
+  function countOuts(hole, board, target) {
+    const made = TARGETS[target].made;
+    const known = [...hole, ...board];
+    if (made(known)) return null;                  // already there, nothing to draw to
+    const seen = new Set(known);
+    let outs = 0;
+    for (let card = 0; card < 52; card += 1) {
+      if (seen.has(card)) continue;
+      if (made([...known, card]) && !made([...board, card])) outs += 1;
+    }
+    return outs;
+  }
+
+  /** A random hand and board with an unambiguous draw worth counting. */
+  function drawSpot() {
+    for (let attempt = 0; attempt < 4000; attempt += 1) {
+      const deck = [];
+      const seen = new Set();
+      const boardSize = pick([3, 4]);
+      while (deck.length < 2 + boardSize) {
+        const card = Math.floor(Math.random() * 52);
+        if (!seen.has(card)) { seen.add(card); deck.push(card); }
+      }
+      const hole = deck.slice(0, 2);
+      const board = deck.slice(2);
+      for (const target of ["flush", "straight", "either"]) {
+        const outs = countOuts(hole, board, target);
+        if (outs !== null && outs >= 4 && outs <= 15) {
+          return { hole, board, target, outs, cards: boardSize === 3 ? 2 : 1 };
+        }
+      }
+    }
+    return null;
+  }
 
   const POTS = [40, 60, 80, 100, 120, 150, 200, 250, 300];
   const FRACTIONS = [1 / 3, 1 / 2, 2 / 3, 3 / 4, 1, 1.5];
@@ -1574,13 +1668,25 @@
   }
   const ruleOfThumb = (outs, cards) => outs * (cards === 2 ? 4 : 2);
 
-  /** Pot P, villain bets B. */
-  function betSpot() {
+  /**
+   * Pot P, villain bets B, and sometimes players call behind before it reaches
+   * you. Each caller adds another B to what you stand to win, so the price
+   * improves: one caller turns a half-pot bet from 25% into 20%.
+   */
+  function betSpot(allowMultiway) {
     const pot = pick(POTS);
     const bet = round5(pot * pick(FRACTIONS));
-    return { pot, bet, need: (100 * bet) / (pot + 2 * bet),
-             text: `The pot is <b>${money(pot)}</b>. Villain bets <b>${money(bet)}</b>.`,
-             call: bet, final: pot + 2 * bet };
+    const callers = allowMultiway ? pick([0, 0, 0, 1, 1, 2]) : 0;
+    const final = pot + bet * (callers + 2);
+    const said = callers === 0 ? ""
+      : callers === 1 ? " One player calls."
+      : ` ${callers} players call.`;
+    return {
+      pot, bet, callers, call: bet, final,
+      need: (100 * bet) / final,
+      text: `The pot is <b>${money(pot)}</b>. Villain bets <b>${money(bet)}</b>.${said}`,
+      sum: `${bet} / (${pot} + ${bet}${callers ? " + " + Array(callers).fill(bet).join(" + ") : ""} + ${bet})`,
+    };
   }
 
   /** Pot P, you bet Y, villain raises to R. You owe the difference. */
@@ -1592,11 +1698,12 @@
     return { pot, yours, to, owe, need: (100 * owe) / (pot + 2 * to),
              text: `The pot is <b>${money(pot)}</b>. You bet <b>${money(yours)}</b> `
                  + `and villain raises to <b>${money(to)}</b>.`,
-             call: owe, final: pot + 2 * to };
+             call: owe, final: pot + 2 * to,
+             sum: `${owe} / (${pot} + ${to} + ${to})` };
   }
 
   function newOddsQuestion() {
-    const kind = pick(oddsKinds);
+    let kind = pick(oddsKinds);
 
     if (kind === "outs") {
       const outs = 2 + Math.floor(Math.random() * 14);
@@ -1633,7 +1740,7 @@
       // assumed about seeing the river cheaply.
       let spot, outs, equity, margin;
       do {
-        spot = betSpot();
+        spot = betSpot(false);
         outs = 2 + Math.floor(Math.random() * 13);
         equity = outsEquity(outs, 1);
         margin = Math.abs(equity - spot.need);
@@ -1643,12 +1750,55 @@
         text: `Turn. ${spot.text} You have <b>${outs}</b> outs and <b>one card</b> to come.`,
         ask: "Call or fold?",
         working: `equity     ${outs} x 2 = ${ruleOfThumb(outs, 1)}%   (exact ${equity.toFixed(1)}%)\n`
-               + `pot odds   ${spot.call} / (${spot.pot} + ${spot.call} + ${spot.call}) = ${spot.need.toFixed(1)}%\n`
+               + `pot odds   ${spot.sum} = ${spot.need.toFixed(1)}%\n`
                + `${equity > spot.need ? "equity beats the price" : "the price is too high"} - ${equity > spot.need ? "call" : "fold"}`,
       };
     }
 
-    const spot = pick([betSpot, raiseSpot])();
+    if (kind === "countouts" || kind === "cards") {
+      // A card question needs a clean draw, and the call-or-fold one also
+      // needs a turn and a margin wide enough not to be a coin flip. Retry
+      // rather than settling, since falling through changes the question.
+      for (let tries = 0; tries < 60; tries += 1) {
+        const draw = drawSpot();
+        if (!draw) break;
+        const label = TARGETS[draw.target].label;
+        if (kind === "countouts") {
+          return {
+            kind, answer: "number", exact: draw.outs, unit: "outs", exactOnly: true,
+            cards: draw, text: "",
+            ask: `How many cards give you ${label}?`,
+            working: `${draw.outs} outs to ${label}\n`
+                   + "a card that makes it for the board alone is not an out - it plays for everyone",
+          };
+        }
+        // Turn only, so one card is coming and nothing has to be assumed about
+        // seeing the river cheaply. Heads up on purpose: outs multiway are not
+        // simply outs, and pretending otherwise would teach the wrong thing.
+        if (draw.cards === 1) {
+          const spot = betSpot(false);
+          const equity = outsEquity(draw.outs, 1);
+          if (Math.abs(equity - spot.need) >= 4) {
+            return {
+              kind, answer: "choice", correct: equity > spot.need ? "call" : "fold",
+              cards: draw,
+              text: `Heads up on the turn. ${spot.text} One card to come.`,
+              ask: "Call or fold?",
+              working: `outs       ${draw.outs} to ${label}\n`
+                     + `equity     ${draw.outs} x 2 = ${ruleOfThumb(draw.outs, 1)}%   (exact ${equity.toFixed(1)}%)\n`
+                     + `pot odds   ${spot.sum} = ${spot.need.toFixed(1)}%\n`
+                     + (equity > spot.need ? "equity beats the price - call" : "the price is too high - fold"),
+            };
+          }
+        }
+      }
+      // Nothing clean came out in 60 tries. Fall through to arithmetic, and
+      // relabel: a question headed "Count your outs" that shows no cards would
+      // be a lie, and would file the answer under the wrong statistic.
+      kind = "equity";
+    }
+
+    const spot = pick([betSpot, raiseSpot])(true);
     if (kind === "ratio") {
       const ratio = (spot.final - spot.call) / spot.call;
       return {
@@ -1656,6 +1806,7 @@
         text: spot.text,
         ask: "What pot odds are you getting?",
         working: `${spot.final - spot.call} : ${spot.call}  =  ${ratio.toFixed(2)} : 1\n`
+               + (spot.callers ? `each caller adds another ${money(spot.bet)} to what you win\n` : "")
                + `which is 1 / (${ratio.toFixed(2)} + 1) = ${spot.need.toFixed(1)}% equity needed`,
       };
     }
@@ -1667,12 +1818,15 @@
         ? `you owe ${spot.to} - ${spot.yours} = ${money(spot.owe)}\n`
           + `${spot.owe} / (${spot.pot} + ${spot.to} + ${spot.to}) = ${spot.need.toFixed(1)}%\n`
           + `your own ${money(spot.yours)} is already in the pot - it is not part of what you owe`
-        : `${spot.call} / (${spot.pot} + ${spot.call} + ${spot.call}) = ${spot.need.toFixed(1)}%`,
+        : `${spot.sum} = ${spot.need.toFixed(1)}%`
+          + (spot.callers ? `\neach caller adds another ${money(spot.bet)} to what you stand to win` : ""),
     };
   }
 
   let oddsKinds = Object.keys(ODDS_KINDS);
   let tolerance = 1;
+  let oddsSeconds = 0;
+  let oddsTimerId = null;
   let question = null;
   let oddsAnswered = false;
   const oddsTally = new Map();
@@ -1698,6 +1852,28 @@
     return isFinite(bare) && bare > 0 ? bare : NaN;
   }
 
+  function stopOddsTimer() {
+    clearTimeout(oddsTimerId);
+    oddsTimerId = null;
+  }
+
+  /** Same drain as the drill's, but this tab gets longer options - arithmetic
+      takes longer than recalling a range does. */
+  function startOddsTimer() {
+    stopOddsTimer();
+    const wrap = el("odds-timer");
+    const bar = el("odds-timer-bar");
+    if (!oddsSeconds) { wrap.hidden = true; return; }
+    wrap.hidden = false;
+    wrap.classList.toggle("low", oddsSeconds <= 10);
+    bar.style.transition = "none";
+    bar.style.width = "100%";
+    void bar.offsetWidth;
+    bar.style.transition = `width ${oddsSeconds}s linear`;
+    bar.style.width = "0%";
+    oddsTimerId = setTimeout(() => { if (!oddsAnswered) gradeOdds(null); }, oddsSeconds * 1000);
+  }
+
   function renderOddsStats() {
     if (!oddsTotals.n) return;
     el("odds-stats").hidden = false;
@@ -1717,6 +1893,8 @@
   }
 
   function askOdds() {
+    stopOddsTimer();
+    el("odds-timer").hidden = true;
     if (!oddsKinds.length) {
       question = null;
       el("odds-none").hidden = false;
@@ -1729,7 +1907,35 @@
     oddsAnswered = false;
 
     el("odds-kind").textContent = ODDS_KINDS[question.kind].label;
+
+    const boardEl = el("odds-board");
+    boardEl.replaceChildren();
+    boardEl.hidden = !question.cards;
+    if (question.cards) {
+      const group = (title, cards) => {
+        const wrap = document.createElement("div");
+        wrap.className = "group";
+        const label = document.createElement("span");
+        label.className = "kicker";
+        label.textContent = title;
+        const row = document.createElement("div");
+        row.className = "cards";
+        for (const card of cards) {
+          const node = cardEl(card);
+          node.classList.add("sm");
+          row.append(node);
+        }
+        wrap.append(label, row);
+        return wrap;
+      };
+      boardEl.append(
+        group("Your hand", question.cards.hole),
+        group(question.cards.cards === 2 ? "Flop" : "Turn", question.cards.board),
+      );
+    }
+
     el("odds-scenario").innerHTML = question.text;
+    el("odds-scenario").hidden = !question.text;
     el("odds-ask").textContent = question.ask;
 
     const area = el("odds-answer");
@@ -1748,6 +1954,7 @@
         acts.append(b);
       }
       area.append(acts);
+      startOddsTimer();
       return;
     }
 
@@ -1757,7 +1964,7 @@
     input.type = "text";
     input.inputMode = "decimal";
     input.autocomplete = "off";
-    input.placeholder = question.answer === "ratio" ? "3:1" : "25";
+    input.placeholder = question.answer === "ratio" ? "3:1" : question.unit === "outs" ? "9" : "25";
     input.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); gradeOdds(input.value); } };
     const unit = document.createElement("span");
     unit.className = "odds-unit";
@@ -1770,14 +1977,19 @@
     entry.append(input, unit, go);
     area.append(entry);
     input.focus();
+    startOddsTimer();
   }
 
   function gradeOdds(given) {
     if (oddsAnswered || !question) return;
 
+    const timedOut = given === null;
     let right;
     let yours;
-    if (question.answer === "choice") {
+    if (timedOut) {
+      right = false;
+      yours = "nothing";
+    } else if (question.answer === "choice") {
       right = given === question.correct;
       yours = given === "call" ? "Call" : "Fold";
     } else {
@@ -1786,13 +1998,18 @@
       const asEquity = question.answer === "ratio" ? 100 / (value + 1) : value;
       const targets = [question.exact];
       if (question.alsoAccept) targets.push(question.alsoAccept);
-      right = targets.some((target) => Math.abs(asEquity - target) <= tolerance + 1e-9);
+      // A count of outs is a count, not an estimate, so the tolerance that
+      // exists for percentages has no business loosening it.
+      const slack = question.exactOnly ? 0 : tolerance;
+      right = targets.some((target) => Math.abs(asEquity - target) <= slack + 1e-9);
       yours = question.answer === "ratio"
         ? `${value.toFixed(2)} : 1  (${asEquity.toFixed(1)}%)`
         : `${value}%`;
     }
 
     oddsAnswered = true;
+    stopOddsTimer();
+    el("odds-timer").hidden = true;
     oddsTotals.n += 1;
     if (right) {
       oddsTotals.right += 1;
@@ -1812,12 +2029,14 @@
     box.className = "verdict " + (right ? "ok" : "no");
     const head = document.createElement("div");
     head.className = "head";
-    head.textContent = right ? "Correct" : "Not quite";
+    head.textContent = right ? "Correct" : (timedOut ? "Out of time" : "Not quite");
     const body = document.createElement("p");
     body.className = "body";
-    body.textContent = question.answer === "choice"
-      ? `You said ${yours}. The answer is ${question.correct === "call" ? "Call" : "Fold"}.`
-      : `You said ${yours}.`;
+    body.textContent = timedOut
+      ? "You answered nothing before the clock ran out."
+      : question.answer === "choice"
+        ? `You said ${yours}. The answer is ${question.correct === "call" ? "Call" : "Fold"}.`
+        : `You said ${yours}.`;
     const working = document.createElement("p");
     working.className = "working";
     working.textContent = question.working;
@@ -1850,7 +2069,7 @@
           oddsKinds = oddsKinds.includes(key)
             ? oddsKinds.filter((x) => x !== key)
             : [...oddsKinds, key];
-          try { localStorage.setItem("pt-odds-kinds", JSON.stringify(oddsKinds)); } catch (e) { /* ignore */ }
+          try { localStorage.setItem("pt-odds-kinds-v2", JSON.stringify(oddsKinds)); } catch (e) { /* ignore */ }
           draw();
           askOdds();
         };
@@ -1858,7 +2077,7 @@
       }
     };
     try {
-      const saved = JSON.parse(localStorage.getItem("pt-odds-kinds") || "null");
+      const saved = JSON.parse(localStorage.getItem("pt-odds-kinds-v2") || "null");
       if (Array.isArray(saved)) oddsKinds = saved.filter((k) => ODDS_KINDS[k]);
     } catch (e) { /* ignore */ }
     draw();
@@ -1866,6 +2085,10 @@
     el("kind-none").onclick = () => { oddsKinds = []; draw(); askOdds(); };
 
     radioSeg("odds-tol-seg", "tol", "pt-tolerance", "1", (value) => { tolerance = Number(value); });
+    radioSeg("odds-timer-seg", "otimer", "pt-odds-timer", "0", (value) => {
+      oddsSeconds = Number(value);
+      if (question && !oddsAnswered) startOddsTimer();
+    });
 
     el("odds-reset").onclick = () => {
       oddsTally.clear();
