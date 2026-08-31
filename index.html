@@ -191,6 +191,22 @@
   button.roll-again:hover { color: var(--text); }
   .roll-note { grid-column: 1 / -1; margin: 6px 0 0; font-size: 11px; color: var(--faint); max-width: 42ch; line-height: 1.55; }
   .roll-note b { color: var(--muted); font-weight: 600; }
+  /* Printing: just the charts, dark chrome stripped, colours forced through. */
+  @media print {
+    @page { margin: 12mm; }
+    body { background: #FFFFFF; }
+    .top, .tabs, #view-drill, #charts-panel, .cell-detail { display: none !important; }
+    #print-sheet { display: block !important; }
+    .print-chart { break-inside: avoid; page-break-inside: avoid; margin: 0 0 16mm; }
+    .print-chart h2 { font-size: 13pt; margin: 0 0 2mm; font-family: "JetBrains Mono", monospace; }
+    .print-chart .sub { font-size: 9pt; color: #444; margin: 0 0 3mm; }
+    .grid { gap: 1px; min-width: 0; }
+    .cell {
+      font-size: 6pt; color: #000 !important; text-shadow: none !important;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+  }
+
   @media (max-width: 560px) { .roll { margin-left: 0; } }
   .cards { display: flex; gap: 8px; }
   .pcard {
@@ -272,6 +288,23 @@
 
   .note { font-size: 12px; color: var(--faint); max-width: 76ch; }
 
+  /* Decision timer. The bar drains rather than counting down in numerals, so
+     it reads at a glance without pulling your eye off the cards. */
+  .timer { height: 4px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+  .timer-bar { height: 100%; width: 100%; background: var(--raise); }
+  .timer.low .timer-bar { background: var(--bad); }
+
+  /* A cell's frequencies live in its title attribute, which a phone can never
+     show. This is where a tap puts them. */
+  .cell-detail {
+    margin: 11px 0 0; font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px; color: var(--muted); min-height: 1.4em; line-height: 1.4;
+  }
+  .cell { cursor: pointer; }
+  .cell.picked { outline: 2px solid var(--ink); outline-offset: 1px; z-index: 3; position: relative; }
+  /* Hands this position plays that the one before it does not. */
+  .cell.added { box-shadow: inset 0 0 0 2px var(--good); }
+
   code {
     font-family: "JetBrains Mono", monospace; font-size: .92em;
     background: var(--surface-2); border: 1px solid var(--line);
@@ -340,6 +373,7 @@
     .grid { grid-template-columns: repeat(13, minmax(0, 1fr)); min-width: 0; gap: 1px; }
     .cell { font-size: 7.5px; border-radius: 2px; }
     .legend { gap: 9px; font-size: 11px; }
+    .cell-detail { font-size: 11px; }
 
     /* Filter rows stack: label above its buttons instead of beside them. */
     .filters { gap: 8px; }
@@ -418,6 +452,7 @@
           </div>
         </div>
 
+        <div class="timer" id="timer" hidden><div class="timer-bar" id="timer-bar"></div></div>
         <div id="answer-area"></div>
         </div>
       </div>
@@ -430,6 +465,7 @@
         <div id="chart-body">
           <div class="legend" id="drill-legend" style="margin-bottom:13px"></div>
           <div class="grid-scroll"><div class="grid" id="drill-grid"></div></div>
+          <p class="cell-detail" id="drill-detail">Tap a cell for its frequencies.</p>
         </div>
         <p class="hidden-chart" id="chart-hidden" hidden>
           Chart hidden &mdash; answer to reveal where your hand sits.
@@ -476,6 +512,27 @@
         </span>
       </div>
       <div class="filters">
+        <span class="kicker">Hands</span>
+        <span class="seg" id="hands-seg">
+          <button type="button" data-hands="all" aria-pressed="true">All</button>
+          <button type="button" data-hands="mixed" aria-pressed="false">Mixed only</button>
+          <button type="button" data-hands="pairs" aria-pressed="false">Pairs</button>
+          <button type="button" data-hands="suited" aria-pressed="false">Suited</button>
+          <button type="button" data-hands="offsuit" aria-pressed="false">Offsuit</button>
+        </span>
+      </div>
+      <div class="filters">
+        <span class="kicker">Timer</span>
+        <span class="seg" id="timer-seg">
+          <button type="button" data-timer="0" aria-pressed="true">Off</button>
+          <button type="button" data-timer="3" aria-pressed="false">3s</button>
+          <button type="button" data-timer="5" aria-pressed="false">5s</button>
+          <button type="button" data-timer="10" aria-pressed="false">10s</button>
+          <button type="button" data-timer="15" aria-pressed="false">15s</button>
+          <button type="button" data-timer="30" aria-pressed="false">30s</button>
+        </span>
+      </div>
+      <div class="filters">
         <span class="kicker">Chart</span>
         <span class="seg" id="chart-mode-seg">
           <button type="button" data-chart-mode="after" aria-pressed="true">After answering</button>
@@ -504,6 +561,11 @@
           <span class="kicker">Action to you</span>
           <select id="chart-facing"></select>
         </label>
+        <span class="bulk" style="align-self:flex-end">
+          <button type="button" id="drill-this">Drill this spot</button>
+          <button type="button" id="compare" hidden></button>
+          <button type="button" id="print-all">Print all</button>
+        </span>
       </div>
       <div class="grid-head">
         <span class="kicker" id="chart-title"></span>
@@ -511,11 +573,14 @@
       </div>
       <div class="legend" id="chart-legend"></div>
       <div class="grid-scroll"><div class="grid" id="chart-grid"></div></div>
+      <p class="cell-detail" id="chart-detail">Tap a cell for its frequencies.</p>
       <div style="border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px" id="chart-notation"></div>
     </div>
   </section>
 
 </div>
+
+<div id="print-sheet" hidden></div>
 
 <script>
 (() => {
@@ -553,6 +618,36 @@
     const lo = Math.min(rankOf(a), rankOf(b));
     if (hi === lo) return RANKS[hi] + RANKS[hi];
     return RANKS[hi] + RANKS[lo] + (suitOf(a) === suitOf(b) ? "s" : "o");
+  }
+
+  /** Every hand in grid order, so a filter can pick one directly. */
+  const ALL_HANDS = (() => {
+    const out = [];
+    for (let row = 0; row < 13; row++) for (let col = 0; col < 13; col++) out.push(handAt(row, col));
+    return out;
+  })();
+
+  /** Two cards that make exactly this hand - the reverse of handOf. */
+  function cardsFor(name) {
+    const r = (c) => RANKS.indexOf(c);
+    const two = () => {
+      const a = Math.floor(Math.random() * 4);
+      let b = Math.floor(Math.random() * 3);
+      if (b >= a) b += 1;
+      return [a, b];
+    };
+    if (name.length === 2) {
+      const [s1, s2] = two();
+      return [r(name[0]) * 4 + s1, r(name[0]) * 4 + s2];
+    }
+    const hi = r(name[0]);
+    const lo = r(name[1]);
+    if (name[2] === "s") {
+      const s = Math.floor(Math.random() * 4);
+      return [hi * 4 + s, lo * 4 + s];
+    }
+    const [s1, s2] = two();
+    return [hi * 4 + s1, lo * 4 + s2];
   }
 
   function handAt(row, col) {
@@ -720,7 +815,24 @@
     cell.classList.add("c-mix");
   }
 
-  function renderGrid(target, spot, mark) {
+  /** How much of a hand is played at all - everything that is not a fold. */
+  function playedPct(spot, name) {
+    const spread = spot.weights[name];
+    if (!spread) return 0;
+    return Object.keys(spread).reduce((sum, a) => sum + (a === "fold" ? 0 : spread[a]), 0);
+  }
+
+  /** One line describing a hand in a spot, for the detail row under a grid. */
+  function describe(spot, name) {
+    const bands = bandsFor(spot, name);
+    if (bands.length === 1) return `${name}  always ${ACTION[bands[0].action].label.toLowerCase()}`;
+    return `${name}  ${mixText(spot, name)}   roll ${bandText(spot, name)}`;
+  }
+
+  function renderGrid(target, spot, mark, opts) {
+    const { detailId, versus } = opts || {};
+    const detail = detailId ? el(detailId) : null;
+    if (detail) detail.textContent = "Tap a cell for its frequencies.";
     target.replaceChildren();
     for (let row = 0; row < 13; row++) {
       for (let col = 0; col < 13; col++) {
@@ -731,6 +843,16 @@
         cell.textContent = name;
         cell.title = `${name} \u2014 ${bands.length > 1 ? mixText(spot, name) : ACTION[bands[0].action].label.toLowerCase()}`;
         paintCell(cell, bands);
+        if (versus && playedPct(spot, name) > playedPct(versus, name)) cell.classList.add("added");
+        if (detail) {
+          cell.onclick = () => {
+            for (const other of target.querySelectorAll(".cell.picked")) other.classList.remove("picked");
+            cell.classList.add("picked");
+            detail.textContent = describe(spot, name)
+              + (versus && playedPct(spot, name) > playedPct(versus, name)
+                  ? `   (${versus.seat} plays it ${playedPct(versus, name).toFixed(0)}%)` : "");
+          };
+        }
         target.append(cell);
       }
     }
@@ -773,23 +895,71 @@
 
   let onFacing = [...FACING_KEYS];
   let onSeats = [...SEAT_KEYS];
+  let handFilter = "all";
+  let timerSeconds = 0;
+  let timerId = null;
   let hand = null;
   let answered = false;
   const tally = new Map();
   let totals = { n: 0, right: 0, streak: 0, best: 0 };
 
-  const inPool = (s) => onFacing.includes(s.facing) && onSeats.includes(s.seat);
+  const STATS_KEY = "pt-stats";
+
+  function saveStats() {
+    try {
+      localStorage.setItem(STATS_KEY, JSON.stringify({ totals, tally: [...tally] }));
+    } catch (e) { /* private mode */ }
+  }
+
+  function loadStats() {
+    try {
+      const raw = localStorage.getItem(STATS_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (saved && saved.totals && Array.isArray(saved.tally)) {
+        totals = saved.totals;
+        for (const [key, value] of saved.tally) tally.set(key, value);
+      }
+    } catch (e) { /* corrupt or unavailable - start fresh */ }
+  }
+
+  /**
+   * The hands a filter allows in a spot. "Mixed only" is the one that depends
+   * on the spot - the other classes are the same 169 hands everywhere.
+   */
+  function handsAllowed(spot) {
+    if (handFilter === "mixed") return Object.keys(spot.bands).filter((h) => spot.bands[h].length > 1);
+    if (handFilter === "pairs") return ALL_HANDS.filter((h) => h.length === 2);
+    if (handFilter === "suited") return ALL_HANDS.filter((h) => h[2] === "s");
+    if (handFilter === "offsuit") return ALL_HANDS.filter((h) => h[2] === "o");
+    return null;
+  }
+
+  const inPool = (s) =>
+    onFacing.includes(s.facing) && onSeats.includes(s.seat)
+    && (handFilter !== "mixed" || s.mixedCount > 0);
 
   function deal() {
     const pool = SPOTS.filter(inPool);
     if (!pool.length) return null;
     const spot = pick(pool);
-    const a = Math.floor(Math.random() * 52);
-    let b = Math.floor(Math.random() * 51);
-    if (b >= a) b += 1;
+
+    // Filtered, the hand class is chosen first and cards are dealt to match.
+    // Classes are picked uniformly rather than by combo count, so a 4-combo
+    // suited hand gets drilled as often as a 12-combo offsuit one.
+    const allowed = handsAllowed(spot);
+    let cards;
+    if (allowed && allowed.length) {
+      cards = cardsFor(pick(allowed));
+    } else {
+      const a = Math.floor(Math.random() * 52);
+      let b = Math.floor(Math.random() * 51);
+      if (b >= a) b += 1;
+      cards = [a, b];
+    }
     // Rolled for every hand, not just the mixed ones. Rolling only when a hand
     // is mixed would tell you it is mixed before you had to decide.
-    return { spot, cards: [a, b], hand: handOf(a, b), roll: roll100() };
+    return { spot, cards, hand: handOf(cards[0], cards[1]), roll: roll100() };
   }
 
   function renderSeats(state) {
@@ -804,7 +974,7 @@
   }
 
   function redrawDrillGrid() {
-    renderGrid(el("drill-grid"), hand.spot, answered ? hand.hand : null);
+    renderGrid(el("drill-grid"), hand.spot, answered ? hand.hand : null, { detailId: "drill-detail" });
     renderLegend(el("drill-legend"), hand.spot,
       answered ? hand.hand + " is outlined" : "your hand is outlined once you answer");
   }
@@ -813,8 +983,35 @@
     el("roll-value").textContent = state.roll;
   }
 
+  function stopTimer() {
+    clearTimeout(timerId);
+    timerId = null;
+  }
+
+  /**
+   * Drains a bar over the chosen number of seconds. Running out counts as a
+   * miss rather than a fold, because guessing under time pressure is the skill
+   * being drilled and a free pass would defeat it.
+   */
+  function startTimer() {
+    stopTimer();
+    const wrap = el("timer");
+    const bar = el("timer-bar");
+    if (!timerSeconds) { wrap.hidden = true; return; }
+    wrap.hidden = false;
+    wrap.classList.toggle("low", timerSeconds <= 5);
+    bar.style.transition = "none";
+    bar.style.width = "100%";
+    void bar.offsetWidth;
+    bar.style.transition = `width ${timerSeconds}s linear`;
+    bar.style.width = "0%";
+    timerId = setTimeout(() => { if (!answered) answer(null); }, timerSeconds * 1000);
+  }
+
   function newHand() {
     const dealt = deal();
+    stopTimer();
+    el("timer").hidden = true;
     if (!dealt) {
       hand = null;
       answered = false;
@@ -868,11 +1065,16 @@
     hint.textContent = OPTIONS.map((a) => ACTION[a].key.toUpperCase()).join(" / ");
     acts.append(hint);
     area.append(acts);
+
+    startTimer();
   }
 
   function answer(chosen) {
     if (answered || !hand) return;
     answered = true;
+    stopTimer();
+    el("timer").hidden = true;
+    const timedOut = chosen === null;
     const spot = hand.spot;
     const correct = actionFor(spot, hand.hand, hand.roll);
     const mixed = isMixed(spot, hand.hand);
@@ -902,7 +1104,10 @@
     box.className = "verdict " + (right ? "ok" : "no");
     const head = document.createElement("div");
     head.className = "head";
-    head.textContent = right ? "Correct" : `${ACTION[correct].label} is the play`;
+    head.textContent = right
+      ? "Correct"
+      : (timedOut ? `Out of time - ${ACTION[correct].label.toLowerCase()} was the play`
+                  : `${ACTION[correct].label} is the play`);
     const body = document.createElement("p");
     body.className = "body";
     body.innerHTML = mixed
@@ -910,7 +1115,7 @@
         + `You rolled <b>${hand.roll}</b> (${bandText(spot, hand.hand)}), so this one is a `
         + `<b>${ACTION[correct].label.toLowerCase()}</b>.`
       : `<b>${hand.hand}</b> is always a <b>${ACTION[correct].label.toLowerCase()}</b> here`
-        + (right ? "." : `, not a ${ACTION[chosen].label.toLowerCase()}.`);
+        + (right || timedOut ? "." : `, not a ${ACTION[chosen].label.toLowerCase()}.`);
     box.append(head, body);
 
     const acts = document.createElement("div");
@@ -924,6 +1129,7 @@
     acts.append(next, hint);
 
     area.append(box, acts);
+    saveStats();
     renderStats();
   }
 
@@ -1024,9 +1230,36 @@
   }
   for (const name of Object.keys(GROUPS)) renderGroup(name);
 
+  /** A single-choice segmented control backed by localStorage. */
+  function radioSeg(segId, attr, key, initial, onPick) {
+    const seg = el(segId);
+    const apply = (value) => {
+      for (const b of seg.querySelectorAll("button")) {
+        b.setAttribute("aria-pressed", String(b.dataset[attr] === value));
+      }
+      try { localStorage.setItem(key, value); } catch (e) { /* private mode */ }
+      onPick(value);
+    };
+    let saved = null;
+    try { saved = localStorage.getItem(key); } catch (e) { /* ignore */ }
+    const known = [...seg.querySelectorAll("button")].map((b) => b.dataset[attr]);
+    apply(known.includes(saved) ? saved : initial);
+    for (const b of seg.querySelectorAll("button")) b.onclick = () => apply(b.dataset[attr]);
+  }
+
+  radioSeg("hands-seg", "hands", "pt-hands", "all", (value) => {
+    handFilter = value;
+    if (hand !== null || value) newHand();
+  });
+  radioSeg("timer-seg", "timer", "pt-timer", "0", (value) => {
+    timerSeconds = Number(value);
+    if (hand && !answered) startTimer();
+  });
+
   el("reset").onclick = () => {
     tally.clear();
     totals = { n: 0, right: 0, streak: 0, best: 0 };
+    saveStats();
     el("stats").hidden = true;
     newHand();
   };
@@ -1042,6 +1275,22 @@
   const chartFacing = el("chart-facing");
   let chartSeatKey = SPOTS.length ? SPOTS[0].seat : null;
   let chartFacingKey = SPOTS.length ? SPOTS[0].facing : null;
+  let comparing = false;
+
+  /**
+   * The same action one seat earlier. Only meaningful for opening ranges,
+   * where position is a ladder - what MP opens that UTG does not is the shape
+   * of position itself. Comparing 3-bet responses across seats says less.
+   */
+  function previousSpot(spot) {
+    if (!spot || spot.facing !== "rfi" || spot.seat === "BB") return null;
+    const order = SEAT_KEYS.filter((k) => k !== "BB");
+    for (let i = order.indexOf(spot.seat) - 1; i >= 0; i--) {
+      const earlier = SPOTS.find((s) => s.seat === order[i] && s.facing === spot.facing);
+      if (earlier) return earlier;
+    }
+    return null;
+  }
 
   /** The actions this seat can actually be facing, in escalation order. */
   const facingAt = (seat) =>
@@ -1069,10 +1318,28 @@
     fillSelect(chartFacing, available, (k) => FACING[k].label, chartFacingKey);
 
     const s = SPOTS.find((x) => x.seat === chartSeatKey && x.facing === chartFacingKey);
+    const prev = previousSpot(s);
+    const versus = comparing && prev ? prev : null;
+
+    const compareBtn = el("compare");
+    compareBtn.hidden = !prev;
+    if (prev) {
+      compareBtn.textContent = comparing ? "Hide what it adds" : `What ${s.seat} adds over ${prev.seat}`;
+      compareBtn.setAttribute("aria-pressed", String(comparing));
+    }
+
+    // Bookmarkable, and shareable now the page is hosted.
+    try { history.replaceState(null, "", "#" + s.seat + "/" + s.facing); } catch (e) { /* file:// */ }
+
     el("chart-title").textContent = spotLabel(s);
     el("chart-pct").textContent = pctLine(s);
-    renderGrid(el("chart-grid"), s, null);
-    renderLegend(el("chart-legend"), s, "suited above the diagonal, offsuit below");
+    renderGrid(el("chart-grid"), s, null, { detailId: "chart-detail", versus });
+    let note = "suited above the diagonal, offsuit below";
+    if (versus) {
+      const added = ALL_HANDS.filter((h) => playedPct(s, h) > playedPct(versus, h)).length;
+      note = `${added} hands outlined that ${s.seat} plays more than ${versus.seat}`;
+    }
+    renderLegend(el("chart-legend"), s, note);
 
     const notation = el("chart-notation");
     notation.replaceChildren();
@@ -1099,6 +1366,48 @@
 
   chartSeat.onchange = () => { chartSeatKey = chartSeat.value; syncChart(); };
   chartFacing.onchange = () => { chartFacingKey = chartFacing.value; syncChart(); };
+  el("compare").onclick = () => { comparing = !comparing; syncChart(); };
+
+  el("drill-this").onclick = () => {
+    onSeats = [chartSeatKey];
+    onFacing = [chartFacingKey];
+    refreshFilters();
+    el("tab-drill").click();
+  };
+
+  /** Renders every chart into a print-only sheet, then hands off to the browser. */
+  el("print-all").onclick = () => {
+    const sheet = el("print-sheet");
+    sheet.replaceChildren();
+    for (const s of SPOTS) {
+      const block = document.createElement("section");
+      block.className = "print-chart";
+      const h = document.createElement("h2");
+      h.textContent = spotLabel(s);
+      const sub = document.createElement("p");
+      sub.className = "sub";
+      sub.textContent = pctLine(s);
+      const grid = document.createElement("div");
+      grid.className = "grid";
+      block.append(h, sub, grid);
+      sheet.append(block);
+      renderGrid(grid, s, null);
+    }
+    sheet.hidden = false;
+    window.print();
+    sheet.hidden = true;
+  };
+
+  /** #BTN/open in the address bar opens that chart directly. */
+  function applyHash() {
+    const raw = decodeURIComponent(location.hash.replace(/^#/, ""));
+    const [seat, facing] = raw.split("/");
+    if (!SPOTS.some((s) => s.seat === seat && s.facing === facing)) return false;
+    chartSeatKey = seat;
+    chartFacingKey = facing;
+    return true;
+  }
+  window.addEventListener("hashchange", () => { if (applyHash()) { el("tab-charts").click(); syncChart(); } });
 
   // ---------- tabs ----------
   const TABS = [["tab-drill", "view-drill"], ["tab-charts", "view-charts"]];
@@ -1130,8 +1439,12 @@
   });
 
   if (HAS_DATA) {
+    loadStats();
+    renderStats();
+    const linked = applyHash();
     newHand();
     syncChart();
+    if (linked) el("tab-charts").click();
   } else {
     // Stand the working UI down and explain why, rather than rendering a
     // trainer with no hand in it.

@@ -51,6 +51,23 @@ Two seat/facing pairs can never happen and are not treated as gaps:
 - **A raise-or-fold seat / Open** - if a seat never limps, it can never end up
   facing an open. This is why UTG has three columns and not four.
 
+## Using it
+
+**Drill tab.** Filter by position and action to you - each group has All and
+None, and a group may be emptied. **Hands** narrows what gets dealt: mixed-only
+drills just the frequency spots, which are the hardest part and otherwise come
+up rarely. **Timer** gives you 3 to 30 seconds per decision; running out counts
+as a miss. Session stats survive a reload.
+
+**Charts tab.** Pick a spot with the two dropdowns. Tap any cell for its exact
+frequencies and roll bands - the only way to see them on a phone, which has no
+hover. **Drill this spot** jumps to the Drill tab filtered to it. On an opening
+range, **What X adds over Y** outlines the hands this seat opens that the seat
+before it does not, which is the shape of position made visible. **Print all**
+lays out all 27 charts for paper.
+
+Every chart has its own URL: `#BTN/open` opens that chart directly.
+
 ## Files
 
 | File | What |

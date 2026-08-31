@@ -25,9 +25,10 @@ the architecture most.
 
 ## Opponent opening sizes
 
-Whatever open size the ranges are written against needs **stating out loud**,
-which the provenance panel now does (~2.5bb). Making it selectable is the next
-step: facing a bigger open you defend tighter, facing a min-raise much wider,
+Whatever open size the ranges are written against needs **stating out loud**.
+It is ~2.5bb, and since the provenance panel was removed that is stated in the
+README only - nowhere on the page itself, which is the part that bothers me.
+Making it selectable is the next step: facing a bigger open you defend tighter, facing a min-raise much wider,
 and the effect is large enough to change whether marginal hands are calls at
 all.
 
@@ -66,6 +67,8 @@ Everything is **100bb**.
 - **Straddles and antes** - common live, changes effective position and pot odds.
 - **Spaced repetition** - surface hands you have got wrong before more often,
   rather than uniform random.
-- **Persist session stats** across reloads, which today reset with the page.
-- **Track roll-spot accuracy separately.** Mixed hands are the hardest part and
-  are currently pooled with the rest in the stats.
+- **Track roll-spot accuracy separately.** Mixed hands are the hardest part.
+  The Mixed-only drill filter now lets you practise them in isolation, but the
+  stats still pool them in with everything else.
+- **Review the hands you got wrong** - needs a hand history, which nothing
+  keeps today.
