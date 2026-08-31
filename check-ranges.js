@@ -11,7 +11,7 @@
  */
 
 const {
-  RANKS, SEATS, TESTED_SEATS, FACING, OPTIONS, RNG_ORDER, RANGES, SPOTS, combosOf,
+  RANKS, ALL_HANDS, SEATS, TESTED_SEATS, FACING, OPTIONS, RNG_ORDER, RANGES, SPOTS, combosOf,
 } = require("./ranges.js");
 
 let failures = 0;
@@ -19,16 +19,7 @@ let skipped = 0;
 const fail = (m) => { console.log("  FAIL " + m); failures++; };
 const skip = (m) => { console.log("  skip " + m); skipped++; };
 
-const ALL_HANDS = new Set();
-for (let i = 0; i < 13; i++) {
-  for (let j = 0; j < 13; j++) {
-    if (i === j) ALL_HANDS.add(RANKS[i] + RANKS[i]);
-    else if (i > j) {
-      ALL_HANDS.add(RANKS[i] + RANKS[j] + "s");
-      ALL_HANDS.add(RANKS[i] + RANKS[j] + "o");
-    }
-  }
-}
+const REAL_HANDS = new Set(ALL_HANDS);
 
 const spot = (seat, facing) => SPOTS.find((s) => s.seat === seat && s.facing === facing);
 /** Share of hands not folded, mixed frequencies included. */
@@ -38,7 +29,7 @@ const weightOf = (s, hand, action) => (s.weights[hand] || {})[action] || 0;
 console.log("1. every hand named is a real starting hand");
 for (const s of SPOTS) {
   for (const hand of Object.keys(s.weights)) {
-    if (!ALL_HANDS.has(hand)) fail(`${s.id} names ${hand}`);
+    if (!REAL_HANDS.has(hand)) fail(`${s.id} names ${hand}`);
   }
 }
 
@@ -96,9 +87,17 @@ for (const seat of Object.keys(RANGES)) {
   else if (!TESTED_SEATS.includes(seat)) fail(`${seat} has ranges but is not in TESTED_SEATS`);
 }
 
-console.log("7. the big blind has no RFI range");
-// It can never be folded to preflop - there is nobody left to act behind it.
-if (spot("BB", "rfi")) fail("BB has an RFI range, which cannot happen");
+console.log("7. checked to in the big blind, no hand ever folds");
+{
+  const bb = spot("BB", "rfi");
+  if (!bb) skip("BB has no RFI range yet");
+  else {
+    if (bb.pct.fold > 0.0001) fail(`BB folds ${bb.pct.fold.toFixed(1)}% when checked to, with nothing to fold to`);
+    if (Object.keys(bb.bands).length !== ALL_HANDS.length) {
+      fail(`BB's RFI covers ${Object.keys(bb.bands).length} hands, not all ${ALL_HANDS.length}`);
+    }
+  }
+}
 
 console.log("8. the first seat to act cannot face an open unless it limps");
 // This applies to the FIRST seat only. Everyone behind it faces an open the
@@ -157,7 +156,7 @@ for (const s of SPOTS.filter((x) => x.facing === "fourbet")) {
 
 console.log("12. trash never opens from a seat that is not the button or a blind");
 for (const s of SPOTS.filter((x) => x.facing === "rfi")) {
-  if (s.seat === "BTN" || s.seat === "SB") continue;
+  if (s.seat === "BTN" || s.seat === "SB" || s.seat === "BB") continue;
   for (const hand of ["72o", "83o", "94o", "32o", "T2o"]) {
     if (weightOf(s, hand, "raise")) fail(`${s.id} raises ${hand}`);
   }
@@ -196,7 +195,6 @@ if (mixed.length) {
 // the big blind is never folded to, and a seat that is raise-or-fold when
 // folded to can never end up facing an open.
 function impossible(seat, facing) {
-  if (seat === "BB" && facing === "rfi") return true;
   // Only the first seat to act needs to have limped to end up facing an open.
   if (facing !== "open" || seat !== SEATS[0]) return false;
   const rfi = spot(seat, "rfi");

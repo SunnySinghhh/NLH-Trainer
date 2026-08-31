@@ -79,6 +79,21 @@ function expand(tokens) {
 
 const combosOf = (h) => (h.length === 2 ? 6 : h[2] === "s" ? 4 : 12);
 
+/** All 169 starting hands. Needed to fill in a spot where folding is not an option. */
+const ALL_HANDS = (() => {
+  const out = [];
+  for (let i = 12; i >= 0; i--) {
+    for (let j = 12; j >= 0; j--) {
+      if (i === j) out.push(RANKS[i] + RANKS[i]);
+      else if (i > j) {
+        out.push(RANKS[i] + RANKS[j] + "s");
+        out.push(RANKS[i] + RANKS[j] + "o");
+      }
+    }
+  }
+  return out;
+})();
+
 // ---------------------------------------------------------------------------
 // The table
 // ---------------------------------------------------------------------------
@@ -121,11 +136,12 @@ const FACING = {
 const OPTIONS = ["raise", "call", "fold", "check"];
 
 /**
- * How a mixed hand maps onto a 1-100 roll: fold at the bottom, then call, then
- * raise, then check. So a hand that calls 50% and raises 50% calls on 1-50 and
- * raises on 51-100; a hand that folds 70% and raises 30% folds on 1-70.
+ * How a mixed hand maps onto a 1-100 roll, passive to aggressive: fold, then
+ * check, then call, then raise. A hand that calls 50% and raises 50% calls on
+ * 1-50 and raises on 51-100; a hand that folds 70% and raises 30% folds on
+ * 1-70; a big blind hand that checks 80% and raises 20% checks on 1-80.
  */
-const RNG_ORDER = ["fold", "call", "raise", "check"];
+const RNG_ORDER = ["fold", "check", "call", "raise"];
 
 // ---------------------------------------------------------------------------
 // Ranges, by seat and by what is facing you.
@@ -135,7 +151,8 @@ const RNG_ORDER = ["fold", "call", "raise", "check"];
 //       raise: [tokens],   // 100% of the time
 //       call:  [tokens],   // 100% of the time
 //       check: [tokens],   // 100% of the time
-//       mix:   { token: { raise: n, call: n, check: n } },   // rest folds
+//       mix:   { token: { raise: n, call: n, check: n } },
+//       rest:  "check",    // what an unnamed hand does; "fold" if omitted
 //     }
 //   }
 //
@@ -537,6 +554,69 @@ const RANGES = {
       },
     },
   },
+
+  BB: {
+    // Checked to in the big blind there is nothing to fold to, so an unnamed
+    // hand checks rather than folds. This is the only spot in the set where
+    // folding is not on the table at all.
+    rfi: {
+      raise: [
+        "22+", "A2s+", "K2s+", "Q7s+", "J8s+", "T8s+", "97s+", "87s", "76s", "65s", "54s",
+        "A2o+", "K7o+", "Q9o+", "J9o+",
+      ],
+      rest: "check",
+    },
+
+    open: {
+      raise: ["JJ+", "AKs", "AQs", "KQs", "A2s-A5s", "AKo", "AQo", "KQo", "TT"],
+      call: ["A9s", "A8s", "A7s", "A6s", "KJs", "KTs", "AJo", "ATo", "77"],
+      mix: {
+        "AJs": { raise: 45, call: 55 },
+        "ATs": { call: 55 },
+        "K9s": { call: 50 },
+        "QJs": { call: 60 },
+        "QTs": { call: 50 },
+        "KJo": { call: 35 },
+        "JTs": { raise: 50, call: 50 },
+        "J9s": { call: 50 },
+        "T9s": { raise: 50, call: 50 },
+        "T8s": { call: 50 },
+        "99": { raise: 55, call: 45 },
+        "98s": { raise: 50, call: 50 },
+        "97s": { call: 50 },
+        "88": { raise: 30, call: 70 },
+        "87s": { raise: 55, call: 45 },
+        "76s": { call: 50 },
+        "66": { call: 50 },
+        "65s": { call: 55 },
+        "55": { call: 50 },
+        "44": { call: 40 },
+        "33": { call: 40 },
+        "22": { call: 45 },
+      },
+    },
+
+    threebet: {
+      raise: ["JJ+", "AKs", "A2s-A5s"],
+      call: ["AQo", "KQo", "QJs", "JTs"],
+      mix: {
+        "AKo": { raise: 80, call: 20 },
+        "AQs": { raise: 60, call: 40 },
+        "KQs": { raise: 45, call: 55 },
+        "TT": { raise: 55, call: 45 },
+        "99": { raise: 45, call: 55 },
+        "88": { raise: 30, call: 70 },
+        "AJs": { call: 25 },
+        "T9s": { call: 50 },
+        "98s": { call: 55 },
+      },
+    },
+
+    fourbet: {
+      raise: ["QQ+"],
+      call: ["JJ", "TT", "AKs", "AKo"],
+    },
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -548,6 +628,7 @@ const RANGES = {
  * is played at all appears; everything else is an implicit 100% fold.
  */
 function weightsOf(entry) {
+  const rest = entry.rest || "fold";
   const weights = {};
   const put = (hand, action, pct) => {
     if (!weights[hand]) weights[hand] = {};
@@ -570,6 +651,16 @@ function weightsOf(entry) {
     for (const hand of expandToken(token)) {
       if (weights[hand]) throw new Error(`${hand} is both mixed and pure`);
       for (const action of Object.keys(spread)) put(hand, action, spread[action]);
+    }
+  }
+
+  // Where the leftover is not a fold, write it out explicitly, so every hand
+  // in the spot carries a full 100% and nothing is left implicit.
+  if (rest !== "fold") {
+    for (const hand of ALL_HANDS) {
+      const spread = weights[hand] || (weights[hand] = {});
+      const used = Object.values(spread).reduce((sum, pct) => sum + pct, 0);
+      if (used < 100) spread[rest] = (spread[rest] || 0) + (100 - used);
     }
   }
 
@@ -664,6 +755,6 @@ function buildSpots() {
 const SPOTS = buildSpots();
 
 module.exports = {
-  RANKS, SEATS, SEAT_NAMES, TESTED_SEATS, FACING, OPTIONS, RNG_ORDER, RANGES, SPOTS,
+  RANKS, ALL_HANDS, SEATS, SEAT_NAMES, TESTED_SEATS, FACING, OPTIONS, RNG_ORDER, RANGES, SPOTS,
   expand, expandToken, combosOf, weightsOf, bandsOf, percentOf,
 };
