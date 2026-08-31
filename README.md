@@ -66,6 +66,27 @@ range, **What X adds over Y** outlines the hands this seat opens that the seat
 before it does not, which is the shape of position made visible. **Print all**
 lays out all 27 charts for paper.
 
+**Pot odds tab.** A math test. Five question types, each generating fresh
+numbers: the equity you need to call a bet, the same facing a raise, pot odds
+as a ratio, how often a bluff must work, and outs to equity. **Call or fold**
+is the composite - you get the pot, the bet, your outs and the street, and
+have to work out both the equity and the price yourself before deciding.
+Answers are typed, graded on a tolerance you pick from Exact to +/-5, and
+every verdict shows the working.
+
+Three deliberate choices in there:
+
+- **Ratio answers are graded by converting to equity**, so `3:1` becomes 25%
+  and is judged on the same tolerance as everything else. `3:1`, `3 to 1`,
+  `3-1` and a bare `3` all parse the same, which keeps awkward ratios like
+  4.33:1 answerable.
+- **Outs questions accept either** the rule-of-2-and-4 answer or the exact
+  one. The rule drifts as outs go up - 15 outs is 60% by the rule and 54% in
+  fact - and both are worth knowing, so the feedback prints both.
+- **Call-or-fold spots are generated on the turn**, one card to come, and only
+  when the margin is at least 4 points. One card avoids hand-waving about
+  seeing the river cheaply; the margin stops the answer being a coin flip.
+
 Every chart has its own URL: `#BTN/open` opens that chart directly.
 
 ## Files
