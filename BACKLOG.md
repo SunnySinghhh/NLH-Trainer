@@ -89,7 +89,11 @@ Everything is **100bb**.
 - **Spaced repetition** - surface hands you have got wrong before more often,
   rather than uniform random.
 - **Track roll-spot accuracy separately.** Mixed hands are the hardest part.
-  The Mixed-only drill filter now lets you practise them in isolation, but the
-  stats still pool them in with everything else.
-- **Review the hands you got wrong** - needs a hand history, which nothing
-  keeps today.
+  The Mixed-only filter drills them in isolation and study sessions weight
+  them, but the headline stats still pool them in with everything else.
+- **Leech handling.** Anki retires a card you keep failing rather than showing
+  it forever. An item missed six or seven times running is telling you the
+  range is wrong, or that the spot needs reading rather than drilling, and it
+  should probably be surfaced rather than recycled.
+- **Study across devices.** Progress lives in localStorage, so it is per
+  browser. Syncing needs a backend, which the project does not have.

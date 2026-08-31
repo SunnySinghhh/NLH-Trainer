@@ -323,6 +323,35 @@
 
   /* Decision timer. The bar drains rather than counting down in numerals, so
      it reads at a glance without pulling your eye off the cards. */
+  .study-bar { display: flex; flex-direction: column; gap: 6px; }
+  .study-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .study-head .mono { font-size: 12.5px; color: var(--muted); }
+  .study-track { height: 5px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+  .study-fill { height: 100%; width: 0%; border-radius: 3px; background: var(--good); transition: width .3s ease; }
+  .study-done { display: flex; flex-direction: column; gap: 13px; padding: 8px 0; }
+  .study-done h2 { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -.015em; }
+  .study-done .line { font-size: 13.5px; color: var(--muted); line-height: 1.7; }
+  .study-done .line b { color: var(--text); font-weight: 600; }
+
+  /* Mastery: one row per level, so the shape of what you know is visible. */
+  .mastery { display: flex; flex-direction: column; gap: 5px; }
+  .mastery-row { display: grid; grid-template-columns: 78px 1fr 44px; align-items: center; gap: 10px; font-size: 12px; }
+  .mastery-row .name { font-family: "JetBrains Mono", monospace; color: var(--muted); }
+  .mastery-row .val { font-family: "JetBrains Mono", monospace; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+  .mastery-row .track { height: 7px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+  .mastery-row .fill { height: 100%; border-radius: 4px; }
+
+  /* How often you have missed this exact hand in this exact spot. */
+  .history { margin: 7px 0 0; font-size: 12.5px; color: var(--muted); }
+  .history b { color: var(--text); font-weight: 600; }
+  button.review-add {
+    appearance: none; font: inherit; font-size: 11.5px; font-weight: 600;
+    font-family: "JetBrains Mono", monospace; padding: 5px 10px; border-radius: 7px;
+    cursor: pointer; border: 1px dashed var(--line-strong); background: transparent; color: var(--faint);
+  }
+  button.review-add:hover { color: var(--text); border-color: var(--text); }
+  button.review-add[disabled] { cursor: default; opacity: .6; }
+
   .timer { height: 4px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
   .timer-bar { height: 100%; width: 100%; background: var(--raise); }
   .timer.low .timer-bar { background: var(--bad); }
@@ -476,6 +505,16 @@
           Nothing selected. Turn on at least one position and one action to you.
         </p>
 
+        <div class="study-bar" id="study-bar" hidden>
+          <div class="study-head">
+            <span class="kicker" id="study-label">Today's study</span>
+            <span class="mono" id="study-count"></span>
+          </div>
+          <div class="study-track"><div class="study-fill" id="study-fill"></div></div>
+        </div>
+
+        <div class="study-done" id="study-done" hidden></div>
+
         <div id="drill-live">
         <div style="display:flex;flex-direction:column;gap:9px">
           <div class="seats" id="seats"></div>
@@ -542,6 +581,11 @@
         <span class="kicker" style="display:block;margin-bottom:8px">Accuracy by position</span>
         <div class="bars" id="bars-seat"></div>
       </div>
+      <div id="mastery-wrap" hidden>
+        <span class="kicker" style="display:block;margin-bottom:8px">Mastery</span>
+        <div class="mastery" id="mastery"></div>
+        <p class="note" id="due-note" style="margin:9px 0 0"></p>
+      </div>
       <div id="weak-wrap" hidden>
         <span class="kicker" style="display:block;margin-bottom:8px">Weakest spots</span>
         <div class="bars" id="bars-weak"></div>
@@ -549,6 +593,20 @@
     </div>
 
     <div class="panel stats" id="drill-filters">
+      <div class="filters">
+        <span class="kicker">Mode</span>
+        <span class="seg" id="mode-seg">
+          <button type="button" data-mode="free" aria-pressed="true">Free play</button>
+          <button type="button" data-mode="study" aria-pressed="false">Today's study</button>
+        </span>
+        <span class="seg" id="size-seg" hidden>
+          <button type="button" data-size="10" aria-pressed="false">10</button>
+          <button type="button" data-size="25" aria-pressed="true">25</button>
+          <button type="button" data-size="50" aria-pressed="false">50</button>
+        </span>
+        <button class="act" type="button" id="study-restart" hidden
+                style="padding:6px 13px;font-size:12.5px">New session</button>
+      </div>
       <div class="filters">
         <span class="kicker">Action to you</span>
         <span class="seg" id="facing-seg"></span>
@@ -565,7 +623,7 @@
           <button type="button" id="seat-none">None</button>
         </span>
       </div>
-      <div class="filters">
+      <div class="filters" id="hands-row">
         <span class="kicker">Hands</span>
         <span class="seg" id="hands-seg">
           <button type="button" data-hands="all" aria-pressed="true">All</button>
@@ -1042,6 +1100,140 @@
     }
   }
 
+  // ---------- spaced repetition ----------
+  /**
+   * One item is one hand in one spot: A5s in BB / Open is a different thing to
+   * know than A5s in BTN / RFI, and they are learned separately.
+   *
+   * Scheduling is Anki-shaped. Getting an item right moves it up a box and
+   * pushes it further out; getting it wrong drops it straight back to Learning
+   * and makes it due now. Nothing is stored until it has been seen, so the
+   * 4,563 possible items cost nothing until they are met.
+   */
+  const LEVELS = [
+    { key: "learning", name: "Learning", days: 0, colour: "var(--bad)" },
+    { key: "weak", name: "Weak", days: 1, colour: "var(--raise)" },
+    { key: "good", name: "Good", days: 3, colour: "var(--call)" },
+    { key: "mastered", name: "Mastered", days: 7, colour: "var(--good)" },
+  ];
+  const SRS_KEY = "pt-srs";
+  const today = () => Math.floor(Date.now() / 86400000);
+  const itemKey = (spotId, hand) => spotId + "|" + hand;
+
+  /** [level, due, seen, missed, streak] - short keys because this file is data. */
+  let srs = {};
+  try { srs = JSON.parse(localStorage.getItem(SRS_KEY) || "{}") || {}; } catch (e) { srs = {}; }
+
+  function saveSrs() {
+    try { localStorage.setItem(SRS_KEY, JSON.stringify(srs)); } catch (e) { /* private mode */ }
+  }
+
+  const seenItem = (spotId, hand) => srs[itemKey(spotId, hand)] || null;
+
+  function recordItem(spotId, hand, right) {
+    const key = itemKey(spotId, hand);
+    const item = srs[key] || [0, 0, 0, 0, 0];
+    item[2] += 1;
+    if (right) {
+      item[4] += 1;
+      item[0] = Math.min(item[0] + 1, LEVELS.length - 1);
+    } else {
+      item[3] += 1;
+      item[4] = 0;
+      item[0] = 0;           // a miss is a miss: straight back to Learning
+    }
+    item[1] = today() + LEVELS[item[0]].days;
+    srs[key] = item;
+    saveSrs();
+    return item;
+  }
+
+  /** Bump an item back into the queue by hand, without marking it wrong. */
+  function flagForReview(spotId, hand) {
+    const key = itemKey(spotId, hand);
+    const item = srs[key] || [0, 0, 0, 0, 0];
+    item[0] = 0;
+    item[1] = today();
+    srs[key] = item;
+    saveSrs();
+  }
+
+  function masteryCounts() {
+    const counts = LEVELS.map(() => 0);
+    let due = 0;
+    for (const key of Object.keys(srs)) {
+      counts[srs[key][0]] += 1;
+      if (srs[key][1] <= today()) due += 1;
+    }
+    return { counts, due, seen: Object.keys(srs).length };
+  }
+
+  /**
+   * A study queue, weighted the way study time is actually worth spending:
+   * mostly things already missed, then the shakier and the genuinely hard,
+   * and a slice of everything else so the rest does not rot.
+   */
+  function buildStudy(size) {
+    const pool = SPOTS.filter(inPool);
+    if (!pool.length) return [];
+    const byId = new Map(pool.map((s) => [s.id, s]));
+
+    const missed = [];
+    const shaky = [];
+    for (const key of Object.keys(srs)) {
+      const [spotId, hand] = key.split("|");
+      if (!byId.has(spotId)) continue;
+      const item = srs[key];
+      if (item[1] > today()) continue;                 // not due yet
+      if (item[3] > 0 && item[0] <= 1) missed.push({ spotId, hand, item });
+      else if (item[0] <= 2) shaky.push({ spotId, hand, item });
+    }
+    // Worst first: most missed, then least recently mastered.
+    missed.sort((a, b) => (b.item[3] / b.item[2]) - (a.item[3] / a.item[2]));
+    shaky.sort((a, b) => a.item[0] - b.item[0]);
+
+    // The genuinely hard ones, whether or not they have been seen: a hand
+    // played more than one way is where the mistakes actually live.
+    const mixed = [];
+    for (const spot of pool) {
+      for (const hand of Object.keys(spot.bands)) {
+        if (spot.bands[hand].length > 1) mixed.push({ spotId: spot.id, hand });
+      }
+    }
+
+    const want = { missed: Math.round(size * 0.6), shaky: Math.round(size * 0.25) };
+    const queue = [];
+    const taken = new Set();
+    const add = (entry) => {
+      const key = itemKey(entry.spotId, entry.hand);
+      if (taken.has(key)) return false;
+      taken.add(key);
+      queue.push(entry);
+      return true;
+    };
+
+    for (const entry of missed) { if (queue.length >= want.missed) break; add(entry); }
+    for (const entry of shaky) { if (queue.length >= want.missed + want.shaky) break; add(entry); }
+    for (const entry of shuffle(mixed)) { if (queue.length >= want.missed + want.shaky) break; add(entry); }
+
+    // Whatever is left is review: anything at all, so coverage does not decay.
+    let guard = 0;
+    while (queue.length < size && guard++ < size * 60) {
+      const spot = pick(pool);
+      add({ spotId: spot.id, hand: pick(ALL_HANDS) });
+    }
+    return shuffle(queue).slice(0, size);
+  }
+
+  function shuffle(list) {
+    const out = [...list];
+    for (let i = out.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  }
+
   // ---------- drill ----------
   // A spot only exists once its range is written, so the filters are built
   // from the data rather than from a fixed list.
@@ -1054,6 +1246,11 @@
   let handFilter = "all";
   let timerSeconds = 0;
   let timerId = null;
+  let mode = "free";
+  let studySize = 25;
+  let studyQueue = [];
+  let studyAt = 0;
+  let studyRight = 0;
   let hand = null;
   let answered = false;
   const tally = new Map();
@@ -1096,6 +1293,15 @@
     && (handFilter !== "mixed" || s.mixedCount > 0);
 
   function deal() {
+    if (mode === "study") {
+      if (studyAt >= studyQueue.length) return null;
+      const entry = studyQueue[studyAt];
+      const spot = SPOTS.find((s) => s.id === entry.spotId);
+      if (!spot) { studyAt += 1; return deal(); }
+      const cards = cardsFor(entry.hand);
+      return { spot, cards, hand: entry.hand, roll: roll100() };
+    }
+
     const pool = SPOTS.filter(inPool);
     if (!pool.length) return null;
     const spot = pick(pool);
@@ -1164,10 +1370,63 @@
     timerId = setTimeout(() => { if (!answered) answer(null); }, timerSeconds * 1000);
   }
 
+  function syncStudyBar() {
+    const on = mode === "study";
+    el("study-bar").hidden = !on;
+    if (!on) return;
+    const total = studyQueue.length;
+    el("study-count").textContent = `${Math.min(studyAt + 1, total)} / ${total}`;
+    el("study-fill").style.width = total ? (100 * studyAt) / total + "%" : "0%";
+  }
+
+  function showStudyDone() {
+    const done = el("study-done");
+    done.replaceChildren();
+    const total = studyQueue.length;
+    const pct = total ? Math.round((100 * studyRight) / total) : 0;
+    const title = document.createElement("h2");
+    title.textContent = "Session complete";
+    const line = document.createElement("p");
+    line.className = "line";
+    const { due } = masteryCounts();
+    line.innerHTML = `<b>${studyRight} of ${total}</b> correct (${pct}%). `
+      + (due ? `<b>${due}</b> item${due === 1 ? "" : "s"} still due.` : "Nothing else is due right now.")
+      + `<br>Missed hands drop back to Learning and return in the next session.`;
+    const acts = document.createElement("div");
+    acts.className = "acts";
+    const again = document.createElement("button");
+    again.type = "button"; again.className = "act next"; again.textContent = "Another session";
+    again.onclick = () => startStudy();
+    const free = document.createElement("button");
+    free.type = "button"; free.className = "act"; free.textContent = "Free play";
+    free.onclick = () => {
+      for (const b of el("mode-seg").querySelectorAll("button")) {
+        if (b.dataset.mode === "free") b.click();
+      }
+    };
+    acts.append(again, free);
+    done.append(title, line, acts);
+    done.hidden = false;
+    el("drill-live").hidden = true;
+    el("drill-chart-panel").hidden = true;
+    el("study-bar").hidden = true;
+    el("no-selection").hidden = true;
+  }
+
+  function startStudy() {
+    studyQueue = buildStudy(studySize);
+    studyAt = 0;
+    studyRight = 0;
+    el("study-done").hidden = true;
+    newHand();
+  }
+
   function newHand() {
+    el("study-done").hidden = true;
     const dealt = deal();
     stopTimer();
     el("timer").hidden = true;
+    if (!dealt && mode === "study" && studyQueue.length) { showStudyDone(); return; }
     if (!dealt) {
       hand = null;
       answered = false;
@@ -1190,6 +1449,7 @@
     el("drill-chart-panel").hidden = false;
     hand = dealt;
     answered = false;
+    syncStudyBar();
 
     renderSeats(hand);
     el("story").textContent = spotLabel(hand.spot);
@@ -1249,6 +1509,12 @@
       t.n += 1; if (right) t.right += 1;
       tally.set(key, t);
     }
+    const item = recordItem(spot.id, hand.hand, right);
+    if (mode === "study") {
+      if (right) studyRight += 1;
+      studyAt += 1;
+      syncStudyBar();
+    }
 
     redrawDrillGrid();
     syncChartVisibility();
@@ -1274,15 +1540,49 @@
         + (right || timedOut ? "." : `, not a ${ACTION[chosen].label.toLowerCase()}.`);
     box.append(head, body);
 
+    // Full strategy every time, so the answer is read as a mix rather than as
+    // a single right action that happened to come up.
+    const strategy = document.createElement("p");
+    strategy.className = "history";
+    strategy.innerHTML = "Strategy: <b>" + bandsFor(spot, hand.hand)
+      .map((b) => `${ACTION[b.action].label} ${b.hi - b.lo + 1}%`).join(" / ") + "</b>";
+    box.append(strategy);
+
+    if (item[2] > 1) {
+      const history = document.createElement("p");
+      history.className = "history";
+      history.innerHTML = item[3] > 0
+        ? `You've missed this spot <b>${item[3]} of ${item[2]}</b> times.`
+        : `You've had this spot right <b>${item[2]} of ${item[2]}</b> times.`;
+      box.append(history);
+    }
+
     const acts = document.createElement("div");
     acts.className = "acts";
     acts.style.marginTop = "14px";
     const next = document.createElement("button");
-    next.type = "button"; next.className = "act next"; next.textContent = "Next hand";
+    next.type = "button"; next.className = "act next";
+    next.textContent = mode === "study" && studyAt >= studyQueue.length ? "Finish session" : "Next hand";
     next.onclick = newHand;
     const hint = document.createElement("span");
     hint.className = "hint"; hint.textContent = "space";
     acts.append(next, hint);
+
+    // Getting one right does not always mean knowing it, so it can be put back
+    // in the queue by hand.
+    if (right) {
+      const review = document.createElement("button");
+      review.type = "button";
+      review.className = "review-add";
+      review.textContent = "Add to review";
+      review.onclick = () => {
+        flagForReview(spot.id, hand.hand);
+        review.textContent = "Added";
+        review.disabled = true;
+        renderStats();
+      };
+      acts.append(review);
+    }
 
     area.append(box, acts);
     saveStats();
@@ -1307,7 +1607,8 @@
   }
 
   function renderStats() {
-    if (totals.n === 0) return;
+    if (totals.n === 0 && Object.keys(srs).length === 0) return;
+    if (totals.n === 0) { el("stats").hidden = false; }
     el("stats").hidden = false;
     el("s-n").textContent = totals.n;
     const acc = (100 * totals.right) / totals.n;
@@ -1326,6 +1627,33 @@
     };
     fill(el("bars-facing"), FACING_KEYS.map((k) => [FACING[k].label, k]));
     fill(el("bars-seat"), SEAT_KEYS.map((k) => [k, "seat:" + k]));
+
+    const { counts, due, seen } = masteryCounts();
+    el("mastery-wrap").hidden = seen === 0;
+    if (seen) {
+      const rows = el("mastery");
+      rows.replaceChildren();
+      LEVELS.forEach((level, i) => {
+        const row = document.createElement("div");
+        row.className = "mastery-row";
+        const name = document.createElement("span");
+        name.className = "name"; name.textContent = level.name;
+        const track = document.createElement("div");
+        track.className = "track";
+        const fill = document.createElement("div");
+        fill.className = "fill";
+        fill.style.width = (100 * counts[i]) / seen + "%";
+        fill.style.background = level.colour;
+        track.append(fill);
+        const val = document.createElement("span");
+        val.className = "val"; val.textContent = String(counts[i]);
+        row.append(name, track, val);
+        rows.append(row);
+      });
+      el("due-note").textContent = due
+        ? `${due} of ${seen} hands seen are due for review.`
+        : `${seen} hands seen, none due right now.`;
+    }
 
     // Only spots with enough attempts to mean anything.
     const weak = [];
@@ -1377,7 +1705,9 @@
 
   function refreshFilters() {
     for (const name of Object.keys(GROUPS)) renderGroup(name);
-    newHand();
+    // Filters scope study too, so changing them means a new queue.
+    if (mode === "study") startStudy();
+    else newHand();
   }
 
   for (const name of Object.keys(GROUPS)) {
@@ -1402,6 +1732,23 @@
     apply(known.includes(saved) ? saved : initial);
     for (const b of seg.querySelectorAll("button")) b.onclick = () => apply(b.dataset[attr]);
   }
+
+  radioSeg("mode-seg", "mode", "pt-mode", "free", (value) => {
+    mode = value;
+    const study = value === "study";
+    el("size-seg").hidden = !study;
+    el("study-restart").hidden = !study;
+    // The Hands filter picks what gets dealt; in study mode the queue does
+    // that, so it would be a control that silently does nothing.
+    el("hands-row").hidden = study;
+    if (study) startStudy();
+    else { el("study-done").hidden = true; el("study-bar").hidden = true; newHand(); }
+  });
+  radioSeg("size-seg", "size", "pt-study-size", "25", (value) => {
+    studySize = Number(value);
+    if (mode === "study") startStudy();
+  });
+  el("study-restart").onclick = () => startStudy();
 
   radioSeg("hands-seg", "hands", "pt-hands", "all", (value) => {
     handFilter = value;

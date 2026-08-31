@@ -53,6 +53,29 @@ Two seat/facing pairs can never happen and are not treated as gaps:
 
 ## Using it
 
+**Two modes.** *Free play* deals at random from whatever the filters allow.
+*Today's study* builds a session from what you have actually got wrong, Anki
+style.
+
+Every hand in every spot is its own item - `A5s` in `BB / Open` is a different
+thing to know than `A5s` in `BTN / RFI` - and each one carries a box:
+
+    Learning -> Weak -> Good -> Mastered
+    same day    1 day   3 days   7 days
+
+Get it right and it moves up a box and comes back later; miss it and it drops
+straight back to Learning and is due again immediately. A session is 60%
+hands you have missed, 25% shaky or mixed-frequency spots, and the rest
+review, so the time goes where it is worth going rather than being spread
+evenly over things you already know. The position and action filters scope the
+queue, so "study my BB spots" works. Nothing is stored until a hand has been
+seen, so the 4,563 possible items cost nothing until you meet them.
+
+After every answer the verdict states the **whole strategy**, not just the
+action that happened to be right, plus how often you have missed that exact
+hand in that exact spot. Getting one right does not always mean knowing it,
+so there is an **Add to review** button to put it back in the queue by hand.
+
 **Pre Flop Range Trainer tab.** Filter by position and action to you - each group has All and
 None, and a group may be emptied. **Hands** narrows what gets dealt: mixed-only
 drills just the frequency spots, which are the hardest part and otherwise come
