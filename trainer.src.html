@@ -271,9 +271,6 @@
 
   .note { font-size: 12px; color: var(--faint); max-width: 76ch; }
 
-  .provenance { padding: 22px; display: flex; flex-direction: column; gap: 10px; }
-  .provenance p { margin: 0; font-size: 12.5px; line-height: 1.75; color: var(--muted); max-width: 82ch; }
-  .provenance b { color: var(--text); font-weight: 600; }
   code {
     font-family: "JetBrains Mono", monospace; font-size: .92em;
     background: var(--surface-2); border: 1px solid var(--line);
@@ -287,6 +284,21 @@
   .empty .steps li { font-size: 13px; color: var(--muted); line-height: 1.6; }
   .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   .field { display: flex; flex-direction: column; gap: 5px; }
+  .bulk { display: inline-flex; gap: 4px; }
+  .bulk button {
+    appearance: none; font: inherit; font-size: 11.5px; font-weight: 600;
+    font-family: "JetBrains Mono", monospace; letter-spacing: .04em;
+    padding: 5px 10px; border-radius: 7px; cursor: pointer;
+    border: 1px dashed var(--line-strong); background: transparent; color: var(--faint);
+  }
+  .bulk button:hover { color: var(--text); border-color: var(--text); }
+  .bulk button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  #drill-live { display: flex; flex-direction: column; gap: 17px; }
+  .drill-empty {
+    margin: 0; padding: 40px 16px; text-align: center;
+    color: var(--faint); font-size: 13px;
+    border: 1px dashed var(--line-strong); border-radius: 9px; background: var(--surface-2);
+  }
   select {
     appearance: none; font: inherit; font-size: 13px; font-weight: 500;
     padding: 8px 32px 8px 12px; border-radius: 8px; cursor: pointer;
@@ -337,6 +349,11 @@
 
     <div class="cols" id="drill-cols">
       <div class="panel drill">
+        <p class="drill-empty" id="no-selection" hidden>
+          Nothing selected. Turn on at least one position and one action to you.
+        </p>
+
+        <div id="drill-live">
         <div style="display:flex;flex-direction:column;gap:9px">
           <div class="seats" id="seats"></div>
           <p class="spot-label" id="story"></p>
@@ -364,6 +381,7 @@
         </div>
 
         <div id="answer-area"></div>
+        </div>
       </div>
 
       <div class="panel grid-panel" id="drill-chart-panel">
@@ -406,10 +424,18 @@
       <div class="filters">
         <span class="kicker">Action to you</span>
         <span class="seg" id="facing-seg"></span>
+        <span class="bulk">
+          <button type="button" id="facing-all">All</button>
+          <button type="button" id="facing-none">None</button>
+        </span>
       </div>
       <div class="filters">
         <span class="kicker">Position</span>
         <span class="seg" id="seat-seg"></span>
+        <span class="bulk">
+          <button type="button" id="seat-all">All</button>
+          <button type="button" id="seat-none">None</button>
+        </span>
       </div>
       <div class="filters">
         <span class="kicker">Chart</span>
@@ -451,48 +477,6 @@
     </div>
   </section>
 
-  <section class="panel provenance">
-    <span class="kicker">How this works and where the ranges come from</span>
-    <p id="prov-empty" hidden>
-      <b>No range data is loaded.</b> Every table in <code>ranges.js</code> is
-      empty, so there is nothing to drill and nothing to chart yet.
-    </p>
-    <p>
-      <b>A spot is a position and an action to you</b> &mdash; nothing more.
-      Whether a 3-bet reached you because you opened and got raised, or because
-      you called and two players raised behind, the right answer is the same,
-      so the trainer does not ask. Every spot offers the same four options,
-      including ones that are not legal: the choice is made out of the whole
-      set rather than one already narrowed for you.
-    </p>
-    <p>
-      <b>The roll.</b> Some hands are not played the same way every time. Those
-      cells are split in the chart, and the number rolled for each hand decides
-      which way this one goes: <b>fold at the bottom of 1-100, then call, then
-      raise</b>. A hand that calls half the time and raises half the time calls
-      on 1-50 and raises on 51-100. Every hand gets a roll, not just the mixed
-      ones &mdash; rolling only when it mattered would tell you a hand was mixed
-      before you had to decide.
-    </p>
-    <p>
-      <b>Assumptions baked in:</b> 8-handed, 100bb effective, a standard
-      <b>~2.5bb open</b>, and no ante or straddle. Facing much larger opens you
-      should defend tighter than this; facing min-raises, wider. The small
-      blind is at the table but is never drilled, because the simulation these
-      ranges come from does not cover it.
-    </p>
-    <p>
-      <b>What is actually verified:</b> structural checks run over all
-      <span id="spot-count">0</span> spots on every build &mdash; every hand is
-      a real starting hand, no hand's frequencies add to more than 100%, the
-      1-100 bands cover every roll exactly once with no gaps, aces are never
-      folded, opening ranges widen and nest from under the gun to the button,
-      and continuing ranges tighten from a 3-bet to a 4-bet. A check with
-      nothing to run against reports as <i>skipped</i> rather than passing, so a
-      half-filled chart never reads as green. These catch a chart that
-      contradicts itself; they cannot tell you it is the best strategy.
-    </p>
-  </section>
 </div>
 
 <script>
@@ -793,7 +777,26 @@
 
   function newHand() {
     const dealt = deal();
-    if (!dealt) return;
+    if (!dealt) {
+      hand = null;
+      answered = false;
+      // An empty pool has two causes worth telling apart: a group switched
+      // fully off, or a combination that has no ranges - UTG facing an open.
+      el("no-selection").textContent = (!onSeats.length || !onFacing.length)
+        ? "Nothing selected. Turn on at least one position and one action to you."
+        : "No ranges for that combination. " + (
+            onSeats.length === 1 && onFacing.length === 1
+              ? `${onSeats[0]} can never be facing ${FACING[onFacing[0]].full}.`
+              : "Try turning more of either group back on."
+          );
+      el("no-selection").hidden = false;
+      el("drill-live").hidden = true;
+      el("drill-chart-panel").hidden = true;
+      return;
+    }
+    el("no-selection").hidden = true;
+    el("drill-live").hidden = false;
+    el("drill-chart-panel").hidden = false;
     hand = dealt;
     answered = false;
 
@@ -940,38 +943,48 @@
   }
 
   // ---------- filters ----------
-  /** Never let the last button in a group be switched off - that deals nothing. */
-  function buildSeg(segId, keys, labelOf, isOn, toggle) {
-    const seg = el(segId);
+  // A group may be emptied. Isolating one position out of seven by switching
+  // off the other six is the thing you actually want to do, so None-then-pick
+  // has to be possible; the drill shows what is missing instead of dealing.
+  const GROUPS = {
+    facing: {
+      seg: "facing-seg", keys: FACING_KEYS, label: (k) => FACING[k].label,
+      get: () => onFacing, set: (next) => { onFacing = next; },
+    },
+    seat: {
+      seg: "seat-seg", keys: SEAT_KEYS, label: (k) => k,
+      get: () => onSeats, set: (next) => { onSeats = next; },
+    },
+  };
+
+  function renderGroup(name) {
+    const group = GROUPS[name];
+    const seg = el(group.seg);
     seg.replaceChildren();
-    for (const key of keys) {
+    for (const key of group.keys) {
       const b = document.createElement("button");
       b.type = "button";
-      b.textContent = labelOf(key);
-      b.setAttribute("aria-pressed", String(isOn(key)));
+      b.textContent = group.label(key);
+      b.setAttribute("aria-pressed", String(group.get().includes(key)));
       b.onclick = () => {
-        const on = b.getAttribute("aria-pressed") === "true";
-        if (!toggle(key, !on)) return;
-        b.setAttribute("aria-pressed", String(!on));
-        newHand();
+        const on = group.get().includes(key);
+        group.set(on ? group.get().filter((x) => x !== key) : [...group.get(), key]);
+        refreshFilters();
       };
       seg.append(b);
     }
   }
 
-  buildSeg("facing-seg", FACING_KEYS, (k) => FACING[k].label, (k) => onFacing.includes(k), (k, want) => {
-    const next = want ? [...onFacing, k] : onFacing.filter((x) => x !== k);
-    if (!next.length || !SPOTS.some((s) => next.includes(s.facing) && onSeats.includes(s.seat))) return false;
-    onFacing = next;
-    return true;
-  });
+  function refreshFilters() {
+    for (const name of Object.keys(GROUPS)) renderGroup(name);
+    newHand();
+  }
 
-  buildSeg("seat-seg", SEAT_KEYS, (k) => k, (k) => onSeats.includes(k), (k, want) => {
-    const next = want ? [...onSeats, k] : onSeats.filter((x) => x !== k);
-    if (!next.length || !SPOTS.some((s) => onFacing.includes(s.facing) && next.includes(s.seat))) return false;
-    onSeats = next;
-    return true;
-  });
+  for (const name of Object.keys(GROUPS)) {
+    el(name + "-all").onclick = () => { GROUPS[name].set([...GROUPS[name].keys]); refreshFilters(); };
+    el(name + "-none").onclick = () => { GROUPS[name].set([]); refreshFilters(); };
+  }
+  for (const name of Object.keys(GROUPS)) renderGroup(name);
 
   el("reset").onclick = () => {
     tally.clear();
@@ -1078,8 +1091,6 @@
     }
   });
 
-  el("spot-count").textContent = String(SPOTS.length);
-
   if (HAS_DATA) {
     newHand();
     syncChart();
@@ -1087,7 +1098,7 @@
     // Stand the working UI down and explain why, rather than rendering a
     // trainer with no hand in it.
     for (const id of ["drill-cols", "drill-filters", "charts-panel"]) el(id).hidden = true;
-    for (const id of ["empty", "empty-charts", "prov-empty"]) el(id).hidden = false;
+    for (const id of ["empty", "empty-charts"]) el(id).hidden = false;
   }
 })();
 </script>
