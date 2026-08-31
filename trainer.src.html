@@ -1,4 +1,5 @@
 <title>Preflop NLH Range Trainer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
@@ -310,6 +311,42 @@
   select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   [hidden] { display: none !important; }
 
+  @media (max-width: 560px) {
+    .wrap { padding: 16px 12px 48px; gap: 14px; }
+    h1 { font-size: 21px; }
+    .drill { padding: 16px; gap: 14px; }
+    .grid-panel, .stats { padding: 14px; }
+
+    /* Cards and the hand read as the headline on a small screen. */
+    .pcard { width: 52px; height: 72px; }
+    .pcard .r { font-size: 22px; }
+    .pcard .s { font-size: 16px; }
+    .hand-title { font-size: 28px; }
+    .hand-row { gap: 14px; }
+
+    /* Four actions across two rows of proper thumb-sized buttons. */
+    .acts { gap: 8px; }
+    button.act { flex: 1 1 calc(50% - 4px); padding: 14px 10px; font-size: 15px; }
+    button.act.next { flex: 1 1 100%; }
+    .acts .hint { display: none; }
+
+    /* The roll is a full-width block rather than a column squeezed to the side. */
+    .roll { width: 100%; padding: 12px; }
+    .roll-note { max-width: none; }
+    /* Context, not instruction - it costs a third of the card on a phone. */
+    .roll-more { display: none; }
+
+    /* 13 columns across ~350px: small, but legible and no sideways scroll. */
+    .grid { grid-template-columns: repeat(13, minmax(0, 1fr)); min-width: 0; gap: 1px; }
+    .cell { font-size: 7.5px; border-radius: 2px; }
+    .legend { gap: 9px; font-size: 11px; }
+
+    /* Filter rows stack: label above its buttons instead of beside them. */
+    .filters { gap: 8px; }
+    .filters > .kicker { flex: 1 0 100%; }
+    select { padding: 10px 32px 10px 12px; font-size: 14px; }
+  }
+
   @media (prefers-reduced-motion: no-preference) {
     .verdict { animation: pop .16s ease-out; }
     @keyframes pop { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
@@ -373,9 +410,10 @@
               <b>Used for frequencies.</b> Some hands are played more than one
               way, and the roll picks which way this time. The actions run
               <b>low to high: fold, then call, then raise</b> &mdash; so a hand
-              that calls 50% and raises 50% calls on 1-50 and raises on 51-100.
-              Rolled on every hand, so it never gives away which hands are
-              mixed; on a hand played only one way, ignore it.
+              that calls 50% and raises 50% calls on 1-50 and raises on 51-100.<span
+              class="roll-more"> Rolled on every hand, so it never gives away
+              which hands are mixed; on a hand played only one way, ignore
+              it.</span>
             </p>
           </div>
         </div>
