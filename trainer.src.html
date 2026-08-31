@@ -1,4 +1,4 @@
-<title>Preflop NLH Range Trainer</title>
+<title>NLH Trainer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -139,7 +139,12 @@
   .seg button:hover:not([aria-pressed="true"]) { color: var(--text); }
   .seg button:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
 
-  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); }
+  .tabs {
+    display: flex; gap: 2px; border-bottom: 1px solid var(--line);
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { white-space: nowrap; flex: none; }
   .tab {
     appearance: none; background: none; border: 0; border-bottom: 2px solid transparent;
     margin-bottom: -1px; padding: 9px 15px; font: inherit; font-weight: 600; font-size: 14px;
@@ -371,6 +376,7 @@
   @media (max-width: 560px) {
     .wrap { padding: 16px 12px 48px; gap: 14px; }
     h1 { font-size: 21px; }
+    .tab { font-size: 11.5px; padding: 8px 9px; }
     .drill { padding: 16px; gap: 14px; }
     .grid-panel, .stats { padding: 14px; }
 
@@ -418,15 +424,15 @@
 <div class="wrap">
   <div class="top">
     <div>
-      <h1>Preflop NLH Range Trainer</h1>
+      <h1>NLH Trainer</h1>
     </div>
     <button class="theme-toggle" type="button" id="theme-toggle"></button>
   </div>
 
   <div class="tabs" role="tablist">
-    <button class="tab" role="tab" id="tab-drill" aria-selected="true" aria-controls="view-drill">Drill</button>
+    <button class="tab" role="tab" id="tab-drill" aria-selected="true" aria-controls="view-drill">Pre Flop Range Trainer</button>
     <button class="tab" role="tab" id="tab-charts" aria-selected="false" aria-controls="view-charts">Charts</button>
-    <button class="tab" role="tab" id="tab-odds" aria-selected="false" aria-controls="view-odds">Pot odds</button>
+    <button class="tab" role="tab" id="tab-odds" aria-selected="false" aria-controls="view-odds">Pot Odds Trainer</button>
   </div>
 
   <section id="view-drill" role="tabpanel" aria-labelledby="tab-drill" style="display:flex;flex-direction:column;gap:18px">

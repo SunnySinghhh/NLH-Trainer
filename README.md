@@ -1,4 +1,4 @@
-# Preflop NLH Range Trainer
+# NLH Trainer
 
 An 8-handed preflop trainer. One self-contained HTML page - no build step to
 run it, no dependencies to install, nothing to serve it from.
@@ -53,7 +53,7 @@ Two seat/facing pairs can never happen and are not treated as gaps:
 
 ## Using it
 
-**Drill tab.** Filter by position and action to you - each group has All and
+**Pre Flop Range Trainer tab.** Filter by position and action to you - each group has All and
 None, and a group may be emptied. **Hands** narrows what gets dealt: mixed-only
 drills just the frequency spots, which are the hardest part and otherwise come
 up rarely. **Timer** gives you 3 to 30 seconds per decision; running out counts
@@ -66,7 +66,7 @@ range, **What X adds over Y** outlines the hands this seat opens that the seat
 before it does not, which is the shape of position made visible. **Print all**
 lays out all 27 charts for paper.
 
-**Pot odds tab.** A math test. Five question types, each generating fresh
+**Pot Odds Trainer tab.** A math test. Five question types, each generating fresh
 numbers: the equity you need to call a bet, the same facing a raise, pot odds
 as a ratio, how often a bluff must work, and outs to equity. **Call or fold**
 is the composite - you get the pot, the bet, your outs and the street, and
