@@ -59,9 +59,9 @@ drills just the frequency spots, which are the hardest part and otherwise come
 up rarely. **Timer** gives you 3 to 30 seconds per decision; running out counts
 as a miss. Session stats survive a reload.
 
-**Charts tab.** Pick a spot with the two dropdowns. Tap any cell for its exact
-frequencies and roll bands - the only way to see them on a phone, which has no
-hover. **Drill this spot** jumps to the Drill tab filtered to it. On an opening
+**Charts tab.** Pick a spot with the two dropdowns. Tap any cell for a popup pinned
+to it showing its exact frequencies and roll bands - the only way to see them
+on a phone, which has no hover. **Drill this spot** jumps to the Drill tab filtered to it. On an opening
 range, **What X adds over Y** outlines the hands this seat opens that the seat
 before it does not, which is the shape of position made visible. **Print all**
 lays out all 27 charts for paper.

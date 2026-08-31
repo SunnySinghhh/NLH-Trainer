@@ -195,7 +195,7 @@
   @media print {
     @page { margin: 12mm; }
     body { background: #FFFFFF; }
-    .top, .tabs, #view-drill, #charts-panel, .cell-detail { display: none !important; }
+    .top, .tabs, #view-drill, #charts-panel, .cell-pop { display: none !important; }
     #print-sheet { display: block !important; }
     .print-chart { break-inside: avoid; page-break-inside: avoid; margin: 0 0 16mm; }
     .print-chart h2 { font-size: 13pt; margin: 0 0 2mm; font-family: "JetBrains Mono", monospace; }
@@ -295,11 +295,18 @@
   .timer.low .timer-bar { background: var(--bad); }
 
   /* A cell's frequencies live in its title attribute, which a phone can never
-     show. This is where a tap puts them. */
-  .cell-detail {
-    margin: 11px 0 0; font-family: "JetBrains Mono", monospace;
-    font-size: 11.5px; color: var(--muted); min-height: 1.4em; line-height: 1.4;
+     show. Tapping puts them in a popup pinned to the cell itself. */
+  .grid-wrap { position: relative; }
+  .cell-pop {
+    position: absolute; z-index: 20; pointer-events: none;
+    min-width: 150px; max-width: 240px; padding: 9px 11px;
+    border-radius: 9px; border: 1px solid var(--line-strong);
+    background: var(--surface); box-shadow: 0 4px 20px -6px rgba(0,0,0,.45);
+    font-family: "JetBrains Mono", monospace; line-height: 1.5;
   }
+  .pop-hand { font-size: 14px; font-weight: 700; color: var(--text); }
+  .pop-freq { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .pop-roll { font-size: 10.5px; color: var(--faint); margin-top: 3px; }
   .cell { cursor: pointer; }
   .cell.picked { outline: 2px solid var(--ink); outline-offset: 1px; z-index: 3; position: relative; }
   /* Hands this position plays that the one before it does not. */
@@ -373,7 +380,7 @@
     .grid { grid-template-columns: repeat(13, minmax(0, 1fr)); min-width: 0; gap: 1px; }
     .cell { font-size: 7.5px; border-radius: 2px; }
     .legend { gap: 9px; font-size: 11px; }
-    .cell-detail { font-size: 11px; }
+    .cell-pop { max-width: 200px; }
 
     /* Filter rows stack: label above its buttons instead of beside them. */
     .filters { gap: 8px; }
@@ -464,8 +471,10 @@
         </div>
         <div id="chart-body">
           <div class="legend" id="drill-legend" style="margin-bottom:13px"></div>
-          <div class="grid-scroll"><div class="grid" id="drill-grid"></div></div>
-          <p class="cell-detail" id="drill-detail">Tap a cell for its frequencies.</p>
+          <div class="grid-wrap">
+            <div class="grid-scroll"><div class="grid" id="drill-grid"></div></div>
+            <div class="cell-pop" id="drill-pop" hidden></div>
+          </div>
         </div>
         <p class="hidden-chart" id="chart-hidden" hidden>
           Chart hidden &mdash; answer to reveal where your hand sits.
@@ -572,8 +581,10 @@
         <span class="mono" id="chart-pct" style="font-size:12px;color:var(--muted)"></span>
       </div>
       <div class="legend" id="chart-legend"></div>
-      <div class="grid-scroll"><div class="grid" id="chart-grid"></div></div>
-      <p class="cell-detail" id="chart-detail">Tap a cell for its frequencies.</p>
+      <div class="grid-wrap">
+        <div class="grid-scroll"><div class="grid" id="chart-grid"></div></div>
+        <div class="cell-pop" id="chart-pop" hidden></div>
+      </div>
       <div style="border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px" id="chart-notation"></div>
     </div>
   </section>
@@ -822,17 +833,51 @@
     return Object.keys(spread).reduce((sum, a) => sum + (a === "fold" ? 0 : spread[a]), 0);
   }
 
-  /** One line describing a hand in a spot, for the detail row under a grid. */
-  function describe(spot, name) {
+  /** Puts every popup away and drops any cell highlight. */
+  function closePops() {
+    for (const pop of document.querySelectorAll(".cell-pop")) pop.hidden = true;
+    for (const cell of document.querySelectorAll(".cell.picked")) cell.classList.remove("picked");
+  }
+
+  /**
+   * Pins the popup to the cell: above it by preference, below when there is no
+   * room, and always clamped inside the grid so it cannot hang off the edge on
+   * a narrow screen.
+   */
+  function showPop(pop, cell, spot, name, versus) {
     const bands = bandsFor(spot, name);
-    if (bands.length === 1) return `${name}  always ${ACTION[bands[0].action].label.toLowerCase()}`;
-    return `${name}  ${mixText(spot, name)}   roll ${bandText(spot, name)}`;
+    const line = (cls, text) => {
+      const node = document.createElement("div");
+      node.className = cls;
+      node.textContent = text;
+      return node;
+    };
+    pop.replaceChildren(
+      line("pop-hand", name),
+      line("pop-freq", bands.length > 1
+        ? mixText(spot, name)
+        : "always " + ACTION[bands[0].action].label.toLowerCase()),
+    );
+    if (bands.length > 1) pop.append(line("pop-roll", "roll " + bandText(spot, name)));
+    if (versus && playedPct(spot, name) > playedPct(versus, name)) {
+      pop.append(line("pop-roll", `${versus.seat} plays it ${playedPct(versus, name).toFixed(0)}%`));
+    }
+
+    pop.hidden = false;
+    const wrap = pop.parentElement.getBoundingClientRect();
+    const box = cell.getBoundingClientRect();
+    const left = Math.max(2, Math.min(
+      box.left - wrap.left + box.width / 2 - pop.offsetWidth / 2,
+      wrap.width - pop.offsetWidth - 2,
+    ));
+    const above = box.top - wrap.top - pop.offsetHeight - 8;
+    pop.style.left = left + "px";
+    pop.style.top = (above < 0 ? box.bottom - wrap.top + 8 : above) + "px";
   }
 
   function renderGrid(target, spot, mark, opts) {
-    const { detailId, versus } = opts || {};
-    const detail = detailId ? el(detailId) : null;
-    if (detail) detail.textContent = "Tap a cell for its frequencies.";
+    const { popId, versus } = opts || {};
+    const pop = popId ? el(popId) : null;
     target.replaceChildren();
     for (let row = 0; row < 13; row++) {
       for (let col = 0; col < 13; col++) {
@@ -844,13 +889,14 @@
         cell.title = `${name} — ${bands.length > 1 ? mixText(spot, name) : ACTION[bands[0].action].label.toLowerCase()}`;
         paintCell(cell, bands);
         if (versus && playedPct(spot, name) > playedPct(versus, name)) cell.classList.add("added");
-        if (detail) {
-          cell.onclick = () => {
-            for (const other of target.querySelectorAll(".cell.picked")) other.classList.remove("picked");
+        if (pop) {
+          cell.onclick = (event) => {
+            event.stopPropagation();
+            const reclick = cell.classList.contains("picked");
+            closePops();
+            if (reclick) return;
             cell.classList.add("picked");
-            detail.textContent = describe(spot, name)
-              + (versus && playedPct(spot, name) > playedPct(versus, name)
-                  ? `   (${versus.seat} plays it ${playedPct(versus, name).toFixed(0)}%)` : "");
+            showPop(pop, cell, spot, name, versus);
           };
         }
         target.append(cell);
@@ -974,7 +1020,7 @@
   }
 
   function redrawDrillGrid() {
-    renderGrid(el("drill-grid"), hand.spot, answered ? hand.hand : null, { detailId: "drill-detail" });
+    renderGrid(el("drill-grid"), hand.spot, answered ? hand.hand : null, { popId: "drill-pop" });
     renderLegend(el("drill-legend"), hand.spot,
       answered ? hand.hand + " is outlined" : "your hand is outlined once you answer");
   }
@@ -1340,8 +1386,8 @@
 
     el("chart-title").textContent = spotLabel(s);
     el("chart-pct").textContent = pctLine(s);
-    renderGrid(el("chart-grid"), s, null, { detailId: "chart-detail", versus });
-    let note = "suited above the diagonal, offsuit below";
+    renderGrid(el("chart-grid"), s, null, { popId: "chart-pop", versus });
+    let note = "tap any cell for its frequencies";
     if (versus) {
       const added = ALL_HANDS.filter((h) => playedPct(s, h) > playedPct(versus, h)).length;
       note = `${added} hands outlined that ${s.seat} plays more than ${versus.seat}`;
@@ -1430,9 +1476,19 @@
     };
   }
 
+  // ---------- popup dismissal ----------
+  // Position is measured at click time, so anything that moves the grid has to
+  // put the popup away rather than leave it pointing at nothing.
+  document.addEventListener("click", closePops);
+  window.addEventListener("resize", closePops);
+  for (const scroller of document.querySelectorAll(".grid-scroll")) {
+    scroller.addEventListener("scroll", closePops);
+  }
+
   // ---------- keyboard ----------
   document.addEventListener("keydown", (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === "Escape") { closePops(); return; }
     if (el("view-drill").hidden || !hand) return;
     const key = e.key.toLowerCase();
     if (!answered) {
