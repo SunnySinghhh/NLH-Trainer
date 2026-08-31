@@ -59,7 +59,7 @@ drills just the frequency spots, which are the hardest part and otherwise come
 up rarely. **Timer** gives you 3 to 30 seconds per decision; running out counts
 as a miss. Session stats survive a reload.
 
-**Charts tab.** Pick a spot with the two dropdowns. Tap any cell for a popup pinned
+**Pre Flop Range Charts tab.** Pick a spot with the two dropdowns. Tap any cell for a popup pinned
 to it showing its exact frequencies and roll bands - the only way to see them
 on a phone, which has no hover. **Drill this spot** jumps to the Drill tab filtered to it. On an opening
 range, **What X adds over Y** outlines the hands this seat opens that the seat
@@ -80,6 +80,10 @@ outs** asks for the number; **Cards: call or fold** gives you the pot and the
 bet as well, so you have to reach the outs, the equity and the price before
 deciding. The arithmetic types can also put **callers** in the pot, which
 changes the price: one caller turns a half-pot bet from 25% into 20%.
+
+Each question carries a line under its heading saying what that type is
+training - the skill, not the answer - so the point of the exercise is on
+screen rather than inferred.
 
 A timer is available here too, at 10 to 60 seconds - longer than the range
 drill's, because arithmetic takes longer than recall.
@@ -105,7 +109,9 @@ Some deliberate choices in there:
   against several opponents is not a matter of arithmetic at all, and a naive
   version would teach a wrong number. See BACKLOG.
 
-Every chart has its own URL: `#BTN/open` opens that chart directly.
+Every chart has its own URL: `#BTN/open` opens that chart directly, and
+`#odds` opens the pot odds trainer. The address bar tracks whichever tab you
+are on, so a reload comes back where you were.
 
 ## Files
 

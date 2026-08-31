@@ -172,6 +172,10 @@
 
   .drill { padding: 22px; display: flex; flex-direction: column; gap: 17px; }
   /* Six cards at drill size would dwarf the question, so the board runs small. */
+  .odds-blurb {
+    margin: 5px 0 0; font-size: 12px; line-height: 1.6;
+    color: var(--faint); max-width: 64ch;
+  }
   .odds-board { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 12px; }
   .odds-board .group { display: flex; flex-direction: column; gap: 5px; }
   .odds-board .cards { display: flex; gap: 5px; }
@@ -402,6 +406,7 @@
 
     /* The roll is a full-width block rather than a column squeezed to the side. */
     .odds-scenario { font-size: 15.5px; }
+    .odds-blurb { font-size: 11.5px; max-width: none; }
     .odds-board { gap: 14px; }
     .pcard.sm { width: 36px; height: 50px; }
     .pcard.sm .r { font-size: 15px; }
@@ -444,7 +449,7 @@
 
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" id="tab-drill" aria-selected="true" aria-controls="view-drill">Pre Flop Range Trainer</button>
-    <button class="tab" role="tab" id="tab-charts" aria-selected="false" aria-controls="view-charts">Charts</button>
+    <button class="tab" role="tab" id="tab-charts" aria-selected="false" aria-controls="view-charts">Pre Flop Range Charts</button>
     <button class="tab" role="tab" id="tab-odds" aria-selected="false" aria-controls="view-odds">Pot Odds Trainer</button>
   </div>
 
@@ -638,6 +643,7 @@
         </p>
         <div id="odds-live">
           <span class="kicker" id="odds-kind">Pot odds</span>
+          <p class="odds-blurb" id="odds-blurb"></p>
           <div id="odds-board" hidden></div>
           <p class="odds-scenario" id="odds-scenario"></p>
           <p class="odds-ask" id="odds-ask"></p>
@@ -1457,12 +1463,14 @@
     }
   }
 
-  /** Keeps the address bar on the tab you are actually looking at. */
+  /**
+   * Keeps the address bar on the tab you are actually looking at, so a reload
+   * comes back where you were. The drill is the default and writes nothing.
+   */
   function updateHash() {
-    const onCharts = !el("view-charts").hidden;
-    const target = onCharts && chartSeatKey
-      ? "#" + chartSeatKey + "/" + chartFacingKey
-      : location.pathname + location.search;
+    let target = location.pathname + location.search;
+    if (!el("view-charts").hidden && chartSeatKey) target = "#" + chartSeatKey + "/" + chartFacingKey;
+    else if (!el("view-odds").hidden) target = "#odds";
     try { history.replaceState(null, "", target); } catch (e) { /* file:// */ }
   }
 
@@ -1555,16 +1563,25 @@
     sheet.hidden = true;
   };
 
-  /** #BTN/open in the address bar opens that chart directly. */
+  /**
+   * #BTN/open opens that chart directly; #odds opens the pot odds trainer.
+   * Returns the tab to show, or null to leave the default alone.
+   */
   function applyHash() {
     const raw = decodeURIComponent(location.hash.replace(/^#/, ""));
+    if (raw === "odds") return "tab-odds";
     const [seat, facing] = raw.split("/");
-    if (!SPOTS.some((s) => s.seat === seat && s.facing === facing)) return false;
-    chartSeatKey = seat;
-    chartFacingKey = facing;
-    return true;
+    if (SPOTS.some((s) => s.seat === seat && s.facing === facing)) {
+      chartSeatKey = seat;
+      chartFacingKey = facing;
+      return "tab-charts";
+    }
+    return null;
   }
-  window.addEventListener("hashchange", () => { if (applyHash()) { el("tab-charts").click(); syncChart(); } });
+  window.addEventListener("hashchange", () => {
+    const target = applyHash();
+    if (target) el(target).click();
+  });
 
   // ---------- pot odds ----------
   /**
@@ -1579,13 +1596,34 @@
    * The bluff denominator has no second B: you are not paying yourself.
    */
   const ODDS_KINDS = {
-    equity: { label: "Equity needed", short: "Equity" },
-    ratio: { label: "Pot odds", short: "Ratio" },
-    bluff: { label: "Bluff break-even", short: "Bluff" },
-    outs: { label: "Outs to equity", short: "Outs" },
-    decision: { label: "Call or fold", short: "Decision" },
-    countouts: { label: "Count your outs", short: "Count" },
-    cards: { label: "Cards: call or fold", short: "Cards" },
+    equity: {
+      label: "Equity needed", short: "Equity",
+      blurb: "The break-even number - how often you have to win for the call to show a profit. Extra callers improve the price.",
+    },
+    ratio: {
+      label: "Pot odds", short: "Ratio",
+      blurb: "The same price in the language players speak. It only tells you anything once you turn it into a percentage.",
+    },
+    bluff: {
+      label: "Bluff break-even", short: "Bluff",
+      blurb: "Risk over risk plus reward. A different formula from pot odds, and the one it gets confused with most.",
+    },
+    outs: {
+      label: "Outs to equity", short: "Outs",
+      blurb: "The rule of 2 and 4, and where it drifts - it overstates your equity as the out count climbs.",
+    },
+    decision: {
+      label: "Call or fold", short: "Decision",
+      blurb: "Comparing equity against price. Both numbers are handed to you; the comparison is the skill.",
+    },
+    countouts: {
+      label: "Count your outs", short: "Count",
+      blurb: "Counting outs off real cards. A card that only improves the board is not an out - it plays for everyone.",
+    },
+    cards: {
+      label: "Cards: call or fold", short: "Cards",
+      blurb: "The whole chain, nothing given: count the outs, turn them into equity, price the call, decide.",
+    },
   };
 
   // ---- real cards, so outs get counted rather than handed to you ----
@@ -1907,6 +1945,7 @@
     oddsAnswered = false;
 
     el("odds-kind").textContent = ODDS_KINDS[question.kind].label;
+    el("odds-blurb").textContent = ODDS_KINDS[question.kind].blurb;
 
     const boardEl = el("odds-board");
     boardEl.replaceChildren();
@@ -2121,6 +2160,7 @@
       }
       if (view === "view-charts") syncChart();
       else updateHash();
+      el(tab).scrollIntoView({ inline: "nearest", block: "nearest" });
     };
   }
 
@@ -2157,10 +2197,10 @@
   if (HAS_DATA) {
     loadStats();
     renderStats();
-    const linked = applyHash();
+    const target = applyHash();
     newHand();
-    // The tab click runs syncChart itself.
-    if (linked) el("tab-charts").click();
+    // The tab click runs syncChart itself where it needs to.
+    if (target) el(target).click();
     else syncChart();
   } else {
     // Stand the working UI down and explain why, rather than rendering a
