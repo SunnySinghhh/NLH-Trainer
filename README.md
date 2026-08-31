@@ -104,10 +104,18 @@ Some deliberate choices in there:
   of outs is a count, not an estimate.
 - **A card that makes the board itself into a flush or a straight is not an
   out**, because it plays for everyone. Those are excluded from the count.
-- **Card-based call-or-fold stays heads up.** Extra callers change the price by
-  exact arithmetic, so those appear in the arithmetic questions; your equity
-  against several opponents is not a matter of arithmetic at all, and a naive
-  version would teach a wrong number. See BACKLOG.
+- **Flop spots have villain all in.** Otherwise the price does not actually
+  buy both cards - there is a turn bet coming - and the rule of 4 overstates
+  your equity. All in, both cards come for the one price and the number is
+  honest.
+- **Multiway card spots are nut flush draws only.** Extra callers change the
+  price by exact arithmetic, but "I hit and I win" stops being fair once there
+  are three of you - except on a draw to the nuts, where it holds. Every other
+  shape stays heads up. See BACKLOG for why the general case is not shipped.
+- **Call and fold come up about equally.** Left to chance this question folded
+  essentially every time: on the turn a nine-out draw is 19.6% and the smallest
+  bet already asks 20%, so a call was close to arithmetically impossible. The
+  generator now aims at an answer and searches for a spot that produces it.
 
 Every chart has its own URL: `#BTN/open` opens that chart directly, and
 `#odds` opens the pot odds trainer. The address bar tracks whichever tab you

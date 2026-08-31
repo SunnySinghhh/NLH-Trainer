@@ -1686,7 +1686,15 @@
       for (const target of ["flush", "straight", "either"]) {
         const outs = countOuts(hole, board, target);
         if (outs !== null && outs >= 4 && outs <= 15) {
-          return { hole, board, target, outs, cards: boardSize === 3 ? 2 : 1 };
+          // A nut flush draw is the one case where "if I hit, I win" is fair
+          // enough to price a multiway pot on. Hero must hold the ace of the
+          // suit, with exactly four of it between hand and board.
+          const suit = hole[0] & 3;
+          const suited = [...hole, ...board].filter((c) => (c & 3) === suit).length;
+          const holdsAce = hole.some((c) => (c & 3) === suit && (c >> 2) === 12);
+          const nutFlush = target === "flush" && suited === 4 && holdsAce
+            && (hole[1] & 3) === suit;
+          return { hole, board, target, outs, nutFlush, cards: boardSize === 3 ? 2 : 1 };
         }
       }
     }
@@ -1694,7 +1702,9 @@
   }
 
   const POTS = [40, 60, 80, 100, 120, 150, 200, 250, 300];
-  const FRACTIONS = [1 / 3, 1 / 2, 2 / 3, 3 / 4, 1, 1.5];
+  const FRACTIONS = [1 / 4, 1 / 3, 1 / 2, 2 / 3, 3 / 4, 1, 1.5];
+  /** All-in sizes, which run bigger than a bet you can still be raised off. */
+  const SHOVES = [1 / 2, 3 / 4, 1, 1.25, 1.5, 2];
   const round5 = (n) => Math.max(5, Math.round(n / 5) * 5);
   const money = (n) => "$" + n;
 
@@ -1711,10 +1721,9 @@
    * you. Each caller adds another B to what you stand to win, so the price
    * improves: one caller turns a half-pot bet from 25% into 20%.
    */
-  function betSpot(allowMultiway) {
+  function betSpot(callers = 0, sizes = FRACTIONS) {
     const pot = pick(POTS);
-    const bet = round5(pot * pick(FRACTIONS));
-    const callers = allowMultiway ? pick([0, 0, 0, 1, 1, 2]) : 0;
+    const bet = round5(pot * pick(sizes));
     const final = pot + bet * (callers + 2);
     const said = callers === 0 ? ""
       : callers === 1 ? " One player calls."
@@ -1774,30 +1783,40 @@
     }
 
     if (kind === "decision") {
-      // Generated on the turn so one card is coming and nothing has to be
-      // assumed about seeing the river cheaply.
-      let spot, outs, equity, margin;
-      do {
-        spot = betSpot(false);
+      // Aimed at an answer rather than left to chance, which folded nine times
+      // in ten. The flop version needs villain all in, or the price does not
+      // actually buy both cards.
+      const wantCall = Math.random() < 0.5;
+      const onFlop = Math.random() < 0.5;
+      let spot, outs, equity;
+      for (let tries = 0; tries < 400; tries += 1) {
+        spot = betSpot(0, onFlop ? SHOVES : FRACTIONS);
         outs = 2 + Math.floor(Math.random() * 13);
-        equity = outsEquity(outs, 1);
-        margin = Math.abs(equity - spot.need);
-      } while (margin < 4);
+        equity = outsEquity(outs, onFlop ? 2 : 1);
+        const call = equity > spot.need;
+        if (Math.abs(equity - spot.need) >= 4 && call === wantCall) break;
+      }
+      const call = equity > spot.need;
       return {
-        kind, answer: "choice", correct: equity > spot.need ? "call" : "fold",
-        text: `Turn. ${spot.text} You have <b>${outs}</b> outs and <b>one card</b> to come.`,
+        kind, answer: "choice", correct: call ? "call" : "fold",
+        text: onFlop
+          ? `Flop. The pot is <b>${money(spot.pot)}</b> and villain moves all in for `
+            + `<b>${money(spot.bet)}</b>. You have <b>${outs}</b> outs and <b>both cards</b> are coming.`
+          : `Turn. ${spot.text} You have <b>${outs}</b> outs and <b>one card</b> to come.`,
         ask: "Call or fold?",
-        working: `equity     ${outs} x 2 = ${ruleOfThumb(outs, 1)}%   (exact ${equity.toFixed(1)}%)\n`
+        working: `equity     ${outs} x ${onFlop ? 4 : 2} = ${ruleOfThumb(outs, onFlop ? 2 : 1)}%   (exact ${equity.toFixed(1)}%)\n`
                + `pot odds   ${spot.sum} = ${spot.need.toFixed(1)}%\n`
-               + `${equity > spot.need ? "equity beats the price" : "the price is too high"} - ${equity > spot.need ? "call" : "fold"}`,
+               + (onFlop ? "all in, so both cards come for the one price\n" : "")
+               + (call ? "equity beats the price - call" : "the price is too high - fold"),
       };
     }
 
     if (kind === "countouts" || kind === "cards") {
-      // A card question needs a clean draw, and the call-or-fold one also
-      // needs a turn and a margin wide enough not to be a coin flip. Retry
-      // rather than settling, since falling through changes the question.
-      for (let tries = 0; tries < 60; tries += 1) {
+      // Aim for the answer rather than accepting whatever falls out. Left to
+      // chance this question folded essentially every time: on the turn a
+      // nine-out draw is 19.6%, and the smallest bet already asks 20%.
+      const wantCall = Math.random() < 0.5;
+      for (let tries = 0; tries < 200; tries += 1) {
         const draw = drawSpot();
         if (!draw) break;
         const label = TARGETS[draw.target].label;
@@ -1810,25 +1829,40 @@
                    + "a card that makes it for the board alone is not an out - it plays for everyone",
           };
         }
-        // Turn only, so one card is coming and nothing has to be assumed about
-        // seeing the river cheaply. Heads up on purpose: outs multiway are not
-        // simply outs, and pretending otherwise would teach the wrong thing.
-        if (draw.cards === 1) {
-          const spot = betSpot(false);
-          const equity = outsEquity(draw.outs, 1);
-          if (Math.abs(equity - spot.need) >= 4) {
-            return {
-              kind, answer: "choice", correct: equity > spot.need ? "call" : "fold",
-              cards: draw,
-              text: `Heads up on the turn. ${spot.text} One card to come.`,
-              ask: "Call or fold?",
-              working: `outs       ${draw.outs} to ${label}\n`
-                     + `equity     ${draw.outs} x 2 = ${ruleOfThumb(draw.outs, 1)}%   (exact ${equity.toFixed(1)}%)\n`
-                     + `pot odds   ${spot.sum} = ${spot.need.toFixed(1)}%\n`
-                     + (equity > spot.need ? "equity beats the price - call" : "the price is too high - fold"),
-            };
-          }
-        }
+
+        const onFlop = draw.cards === 2;
+        // Multiway only on a nut flush draw. Everywhere else "I hit and win"
+        // stops being a fair assumption once there are three of you, and the
+        // equity side would be a guess dressed up as arithmetic.
+        const callers = draw.nutFlush ? pick([0, 0, 1, 1, 2]) : 0;
+        // On the flop the price only buys both cards if villain is all in.
+        // Otherwise there is a turn bet coming and the rule of 4 overstates it.
+        const spot = betSpot(callers, onFlop ? SHOVES : FRACTIONS);
+        const equity = outsEquity(draw.outs, draw.cards);
+        const call = equity > spot.need;
+        if (Math.abs(equity - spot.need) < 4 || call !== wantCall) continue;
+
+        const who = callers === 0 ? "Heads up"
+          : callers === 1 ? "Three of you in the hand"
+          : "Four of you in the hand";
+        const action = onFlop
+          ? `The pot is <b>${money(spot.pot)}</b>. Villain moves all in for <b>${money(spot.bet)}</b>.`
+          : `${spot.text}`;
+        const said = callers === 0 ? ""
+          : callers === 1 ? " One player calls." : ` ${callers} players call.`;
+        return {
+          kind, answer: "choice", correct: call ? "call" : "fold",
+          cards: draw,
+          text: `${who} on the ${onFlop ? "flop" : "turn"}. ${action}${onFlop ? said : ""} `
+              + (onFlop ? "Both cards are coming." : "One card to come."),
+          ask: "Call or fold?",
+          working: `outs       ${draw.outs} to ${label}\n`
+                 + `equity     ${draw.outs} x ${onFlop ? 4 : 2} = ${ruleOfThumb(draw.outs, draw.cards)}%   (exact ${equity.toFixed(1)}%)\n`
+                 + `pot odds   ${spot.sum} = ${spot.need.toFixed(1)}%\n`
+                 + (onFlop ? "all in, so both cards come for the one price\n" : "")
+                 + (callers ? "nut flush draw, so hitting wins - each caller improves the price\n" : "")
+                 + (call ? "equity beats the price - call" : "the price is too high - fold"),
+        };
       }
       // Nothing clean came out in 60 tries. Fall through to arithmetic, and
       // relabel: a question headed "Count your outs" that shows no cards would
@@ -1836,7 +1870,7 @@
       kind = "equity";
     }
 
-    const spot = pick([betSpot, raiseSpot])(true);
+    const spot = pick([betSpot, raiseSpot])(pick([0, 0, 0, 1, 1, 2]));
     if (kind === "ratio") {
       const ratio = (spot.final - spot.call) / spot.call;
       return {
