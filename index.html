@@ -1307,8 +1307,18 @@
     }
   }
 
+  /** Keeps the address bar on the tab you are actually looking at. */
+  function updateHash() {
+    const onCharts = !el("view-charts").hidden;
+    const target = onCharts && chartSeatKey
+      ? "#" + chartSeatKey + "/" + chartFacingKey
+      : location.pathname + location.search;
+    try { history.replaceState(null, "", target); } catch (e) { /* file:// */ }
+  }
+
   function syncChart() {
     if (!chartSeatKey) return;
+    updateHash();
     // Not every seat has every action - UTG can never be facing an open - so
     // the second dropdown is rebuilt from the first rather than offering
     // combinations that do not exist.
@@ -1327,9 +1337,6 @@
       compareBtn.textContent = comparing ? "Hide what it adds" : `What ${s.seat} adds over ${prev.seat}`;
       compareBtn.setAttribute("aria-pressed", String(comparing));
     }
-
-    // Bookmarkable, and shareable now the page is hosted.
-    try { history.replaceState(null, "", "#" + s.seat + "/" + s.facing); } catch (e) { /* file:// */ }
 
     el("chart-title").textContent = spotLabel(s);
     el("chart-pct").textContent = pctLine(s);
@@ -1419,6 +1426,7 @@
         el(v).hidden = !on;
       }
       if (view === "view-charts") syncChart();
+      else updateHash();
     };
   }
 
@@ -1443,8 +1451,9 @@
     renderStats();
     const linked = applyHash();
     newHand();
-    syncChart();
+    // The tab click runs syncChart itself.
     if (linked) el("tab-charts").click();
+    else syncChart();
   } else {
     // Stand the working UI down and explain why, rather than rendering a
     // trainer with no hand in it.
