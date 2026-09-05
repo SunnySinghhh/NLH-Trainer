@@ -82,12 +82,30 @@ drills just the frequency spots, which are the hardest part and otherwise come
 up rarely. **Timer** gives you 3 to 30 seconds per decision; running out counts
 as a miss. Session stats survive a reload.
 
+**Which hands come up.** Dealt uniformly, 83% of hands are a pure fold with no
+decision in them and only 4.5% are frequency spots - most of a session spent
+confirming that 32o folds. The **Weighted** setting, now the default, fixes
+that: frequency spots and in-range hands come up far more often, and folds are
+weighted by how many spots play the hand at all, so a hand you open three seats
+over still appears while 32o barely does. Measured over 800 deals that moves
+frequency spots from 4.5% to 34.5% and pure folds from 83.4% to 40.4%. **Every
+hand** restores the flat distribution.
+
 **Pre Flop Range Charts tab.** Pick a spot with the two dropdowns. Tap any cell for a popup pinned
 to it showing its exact frequencies and roll bands - the only way to see them
 on a phone, which has no hover. **Drill this spot** jumps to the Drill tab filtered to it. On an opening
 range, **What X adds over Y** outlines the hands this seat opens that the seat
 before it does not, which is the shape of position made visible. **Print all**
 lays out all 27 charts for paper.
+
+**Test recall** blanks the grid and has you paint the whole range from memory -
+drag to fill, three brushes, works by touch. Check scores it and shows the real
+range with every cell you got wrong outlined, plus how many hands you played
+that should fold and folded that should play. Drilling one hand at a time never
+asks whether you hold the shape of a range in your head; this does. A mixed
+hand counts correct for any action in its mix, since the exact split is drilled
+hand by hand elsewhere and demanding it on a painted chart tests something
+different.
 
 **Pot Odds Trainer tab.** A math test. Five question types, each generating fresh
 numbers: the equity you need to call a bet, the same facing a raise, pot odds
