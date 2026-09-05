@@ -334,6 +334,17 @@
   .study-done .line b { color: var(--text); font-weight: 600; }
 
   /* Mastery: one row per level, so the shape of what you know is visible. */
+  /* Recall test: paint the range from memory, then see the real one. */
+  .recall { display: flex; flex-direction: column; gap: 8px; }
+  .recall-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .recall-note { margin: 0; font-size: 12px; color: var(--faint); line-height: 1.6; }
+  .recall-note b { color: var(--text); font-weight: 600; }
+  .grid.painting { cursor: crosshair; }
+  .grid.painting .cell { user-select: none; }
+  /* Where your painted range and the real one disagree. */
+  .cell.wrong { box-shadow: inset 0 0 0 2px var(--bad); }
+  .cell.right { box-shadow: inset 0 0 0 2px var(--good); }
+
   .mastery { display: flex; flex-direction: column; gap: 5px; }
   .mastery-row { display: grid; grid-template-columns: 78px 1fr 44px; align-items: center; gap: 10px; font-size: 12px; }
   .mastery-row .name { font-family: "JetBrains Mono", monospace; color: var(--muted); }
@@ -626,7 +637,8 @@
       <div class="filters" id="hands-row">
         <span class="kicker">Hands</span>
         <span class="seg" id="hands-seg">
-          <button type="button" data-hands="all" aria-pressed="true">All</button>
+          <button type="button" data-hands="weighted" aria-pressed="true">Weighted</button>
+          <button type="button" data-hands="all" aria-pressed="false">Every hand</button>
           <button type="button" data-hands="mixed" aria-pressed="false">Mixed only</button>
           <button type="button" data-hands="pairs" aria-pressed="false">Pairs</button>
           <button type="button" data-hands="suited" aria-pressed="false">Suited</button>
@@ -675,6 +687,7 @@
         </label>
         <span class="bulk" style="align-self:flex-end">
           <button type="button" id="drill-this">Drill this spot</button>
+          <button type="button" id="recall-start">Test recall</button>
           <button type="button" id="compare" hidden></button>
           <button type="button" id="print-all">Print all</button>
         </span>
@@ -682,6 +695,21 @@
       <div class="grid-head">
         <span class="kicker" id="chart-title"></span>
         <span class="mono" id="chart-pct" style="font-size:12px;color:var(--muted)"></span>
+      </div>
+      <div class="recall" id="recall-bar" hidden>
+        <div class="recall-row">
+          <span class="kicker">Brush</span>
+          <span class="seg" id="brush-seg">
+            <button type="button" data-brush="raise" aria-pressed="true">Raise</button>
+            <button type="button" data-brush="call" aria-pressed="false">Call</button>
+            <button type="button" data-brush="fold" aria-pressed="false">Fold</button>
+          </span>
+          <button class="act" type="button" id="recall-check" style="padding:6px 13px;font-size:12.5px">Check</button>
+          <button class="act" type="button" id="recall-exit" style="padding:6px 13px;font-size:12.5px">Exit</button>
+        </div>
+        <p class="recall-note" id="recall-note">
+          Paint the range from memory - drag to fill. Everything starts folded.
+        </p>
       </div>
       <div class="legend" id="chart-legend"></div>
       <div class="grid-wrap">
@@ -1100,6 +1128,57 @@
     }
   }
 
+  // ---------- how often a hand should come up ----------
+  /**
+   * Dealt uniformly, 83% of hands are a pure fold with no decision in them and
+   * only 4.5% are frequency spots. That spends most of the session confirming
+   * that 32o folds.
+   *
+   * Weighting fixes it without pretending folds do not exist - you still have
+   * to know where the range ends. The trick is that folds are not equal: a
+   * hand folded here but opened three seats over is worth being asked about,
+   * and 32o never is. So a fold's weight comes from how many spots play it.
+   */
+  const PLAYABILITY = (() => {
+    const map = {};
+    for (const hand of ALL_HANDS) map[hand] = 0;
+    for (const spot of SPOTS) {
+      for (const hand of Object.keys(spot.weights)) {
+        const spread = spot.weights[hand];
+        if (Object.keys(spread).some((a) => a !== "fold" && spread[a] > 0)) map[hand] += 1;
+      }
+    }
+    return map;
+  })();
+
+  function handWeight(spot, hand) {
+    const bands = spot.bands[hand];
+    if (bands && bands.length > 1) return 24;                  // frequency spot
+    if (bands && bands[0].action !== "fold") return 7;         // clearly in range
+    return 0.3 + (PLAYABILITY[hand] || 0) * 0.35;              // a fold, worth asking or not
+  }
+
+  /** Cumulative weights per spot, built once and reused. */
+  const weightTables = new Map();
+  function weightedHand(spot) {
+    let table = weightTables.get(spot.id);
+    if (!table) {
+      const cum = [];
+      let total = 0;
+      for (const hand of ALL_HANDS) { total += handWeight(spot, hand); cum.push(total); }
+      table = { cum, total };
+      weightTables.set(spot.id, table);
+    }
+    const roll = Math.random() * table.total;
+    let lo = 0;
+    let hi = table.cum.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (table.cum[mid] < roll) lo = mid + 1; else hi = mid;
+    }
+    return ALL_HANDS[lo];
+  }
+
   // ---------- spaced repetition ----------
   /**
    * One item is one hand in one spot: A5s in BB / Open is a different thing to
@@ -1313,6 +1392,8 @@
     let cards;
     if (allowed && allowed.length) {
       cards = cardsFor(pick(allowed));
+    } else if (handFilter === "weighted") {
+      cards = cardsFor(weightedHand(spot));
     } else {
       const a = Math.floor(Math.random() * 52);
       let b = Math.floor(Math.random() * 51);
@@ -1750,7 +1831,7 @@
   });
   el("study-restart").onclick = () => startStudy();
 
-  radioSeg("hands-seg", "hands", "pt-hands", "all", (value) => {
+  radioSeg("hands-seg", "hands", "pt-hands-v2", "weighted", (value) => {
     handFilter = value;
     if (hand !== null || value) newHand();
   });
@@ -1845,7 +1926,9 @@
 
     el("chart-title").textContent = spotLabel(s);
     el("chart-pct").textContent = pctLine(s);
-    renderGrid(el("chart-grid"), s, null, { popId: "chart-pop", versus });
+    if (!(recallOn && !recallChecked)) {
+      renderGrid(el("chart-grid"), s, null, { popId: "chart-pop", versus });
+    }
     let note = "tap any cell for its frequencies";
     if (versus) {
       const added = ALL_HANDS.filter((h) => playedPct(s, h) > playedPct(versus, h)).length;
@@ -1876,8 +1959,16 @@
     line("By frequency", mixHands.map((h) => `${h} ${mixText(s, h)}`).join("  ·  "));
   }
 
-  chartSeat.onchange = () => { chartSeatKey = chartSeat.value; syncChart(); };
-  chartFacing.onchange = () => { chartFacingKey = chartFacing.value; syncChart(); };
+  chartSeat.onchange = () => {
+    chartSeatKey = chartSeat.value;
+    syncChart();
+    if (recallOn) startRecall();
+  };
+  chartFacing.onchange = () => {
+    chartFacingKey = chartFacing.value;
+    syncChart();
+    if (recallOn) startRecall();
+  };
   el("compare").onclick = () => { comparing = !comparing; syncChart(); };
 
   el("drill-this").onclick = () => {
@@ -2528,6 +2619,151 @@
     renderOddsStats();
     askOdds();
   })();
+
+  // ---------- recall test ----------
+  /**
+   * Paint the whole range from memory, then see it against the real one.
+   * Drilling one hand at a time never asks whether you hold the shape of a
+   * range in your head; this does.
+   *
+   * A mixed hand counts correct for any action in its mix. Demanding the exact
+   * split on a painted chart would be testing a different thing, and the
+   * frequencies are drilled hand by hand elsewhere.
+   */
+  let recallOn = false;
+  let recallChecked = false;
+  let brush = "raise";
+  let marks = {};
+  let painting = false;
+
+  const currentSpot = () => SPOTS.find((s) => s.seat === chartSeatKey && s.facing === chartFacingKey);
+
+  function paint(cell) {
+    if (!recallOn || recallChecked || !cell) return;
+    const hand = cell.textContent;
+    if (brush === "fold") delete marks[hand]; else marks[hand] = brush;
+    cell.className = "cell";
+    cell.style.background = "";
+    paintCell(cell, [{ action: marks[hand] || "fold", lo: 1, hi: 100 }]);
+  }
+
+  function renderRecallGrid() {
+    const target = el("chart-grid");
+    target.replaceChildren();
+    target.classList.add("painting");
+    for (let row = 0; row < 13; row += 1) {
+      for (let col = 0; col < 13; col += 1) {
+        const hand = handAt(row, col);
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        cell.textContent = hand;
+        paintCell(cell, [{ action: marks[hand] || "fold", lo: 1, hi: 100 }]);
+        cell.onmousedown = (e) => { e.preventDefault(); painting = true; paint(cell); };
+        cell.onmouseenter = () => { if (painting) paint(cell); };
+        target.append(cell);
+      }
+    }
+  }
+
+  /** Drag painting has to work by touch too, where there is no mouseenter. */
+  function touchPaint(event) {
+    if (!painting) return;
+    const touch = event.touches[0];
+    if (!touch) return;
+    const under = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (under && under.classList.contains("cell")) { event.preventDefault(); paint(under); }
+  }
+
+  function scoreRecall() {
+    const spot = currentSpot();
+    let handsRight = 0;
+    let combosRight = 0;
+    let combosAll = 0;
+    let falseIn = 0;
+    let falseOut = 0;
+    const wrong = new Set();
+    for (const hand of ALL_HANDS) {
+      const combos = hand.length === 2 ? 6 : hand[2] === "s" ? 4 : 12;
+      combosAll += combos;
+      const yours = marks[hand] || "fold";
+      const bands = bandsFor(spot, hand);
+      const truth = bands.map((b) => b.action);
+      if (truth.includes(yours)) { handsRight += 1; combosRight += combos; }
+      else {
+        wrong.add(hand);
+        if (yours === "fold") falseOut += 1; else falseIn += 1;
+      }
+    }
+    return { handsRight, combosRight, combosAll, falseIn, falseOut, wrong };
+  }
+
+  function checkRecall() {
+    const spot = currentSpot();
+    const result = scoreRecall();
+    recallChecked = true;
+    painting = false;
+
+    // Show the real range, with every cell you got wrong outlined.
+    renderGrid(el("chart-grid"), spot, null, { popId: "chart-pop" });
+    for (const cell of el("chart-grid").querySelectorAll(".cell")) {
+      cell.classList.add(result.wrong.has(cell.textContent) ? "wrong" : "right");
+    }
+    el("chart-grid").classList.remove("painting");
+
+    const pct = Math.round((100 * result.combosRight) / result.combosAll);
+    el("recall-note").innerHTML =
+      `<b>${result.handsRight} of 169 hands</b> right, <b>${pct}%</b> by combos. `
+      + `<b>${result.falseIn}</b> played that should fold, <b>${result.falseOut}</b> folded that should play. `
+      + "Red cells are where you were off; the grid now shows the real range.";
+    el("recall-check").textContent = "Try again";
+  }
+
+  function startRecall() {
+    recallOn = true;
+    recallChecked = false;
+    marks = {};
+    el("recall-bar").hidden = false;
+    el("recall-check").textContent = "Check";
+    el("recall-note").innerHTML =
+      "Paint the range from memory - drag to fill. Everything starts folded.";
+    el("chart-pct").hidden = true;
+    el("chart-notation").hidden = true;
+    el("chart-legend").hidden = true;
+    renderRecallGrid();
+  }
+
+  function exitRecall() {
+    recallOn = false;
+    recallChecked = false;
+    el("recall-bar").hidden = true;
+    el("chart-pct").hidden = false;
+    el("chart-notation").hidden = false;
+    el("chart-legend").hidden = false;
+    el("chart-grid").classList.remove("painting");
+    syncChart();
+  }
+
+  document.addEventListener("mouseup", () => { painting = false; });
+  document.addEventListener("touchend", () => { painting = false; });
+  el("chart-grid").addEventListener("touchstart", (e) => {
+    if (!recallOn || recallChecked) return;
+    painting = true;
+    const under = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+    if (under && under.classList.contains("cell")) { e.preventDefault(); paint(under); }
+  }, { passive: false });
+  el("chart-grid").addEventListener("touchmove", touchPaint, { passive: false });
+
+  el("recall-start").onclick = () => startRecall();
+  el("recall-exit").onclick = () => exitRecall();
+  el("recall-check").onclick = () => { if (recallChecked) startRecall(); else checkRecall(); };
+  for (const b of el("brush-seg").querySelectorAll("button")) {
+    b.onclick = () => {
+      brush = b.dataset.brush;
+      for (const other of el("brush-seg").querySelectorAll("button")) {
+        other.setAttribute("aria-pressed", String(other === b));
+      }
+    };
+  }
 
   // ---------- tabs ----------
   const TABS = [["tab-drill", "view-drill"], ["tab-charts", "view-charts"], ["tab-odds", "view-odds"]];
